@@ -54,6 +54,8 @@ class CmsController extends BaseAdminController
             'title' => 'required|min_length[3]|max_length[150]',
             'cta_url' => 'permit_empty|max_length[255]',
             'sort_order' => 'permit_empty|integer',
+            'starts_at' => 'permit_empty|regex_match[/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/]',
+            'ends_at' => 'permit_empty|regex_match[/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/]',
         ];
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
@@ -85,8 +87,8 @@ class CmsController extends BaseAdminController
             'cta_url' => $ctaUrl !== '' ? $ctaUrl : null,
             'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
             'is_active' => $this->request->getPost('is_active') ? 1 : 0,
-            'starts_at' => $this->request->getPost('starts_at') ?: null,
-            'ends_at' => $this->request->getPost('ends_at') ?: null,
+            'starts_at' => $this->normalizeDateTimeLocal((string) $this->request->getPost('starts_at')),
+            'ends_at' => $this->normalizeDateTimeLocal((string) $this->request->getPost('ends_at')),
             'updated_by' => (int) session()->get('user_id'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -341,6 +343,21 @@ class CmsController extends BaseAdminController
         $file->move($targetDir, $newName, true);
 
         return ['path' => 'uploads/banners/' . $newName];
+    }
+
+    private function normalizeDateTimeLocal(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $value);
+        if (!$dt) {
+            return null;
+        }
+
+        return $dt->format('Y-m-d H:i:s');
     }
 
     private function activeBanners(): array

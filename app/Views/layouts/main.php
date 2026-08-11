@@ -8,7 +8,7 @@ if (!is_array($settings)) {
 }
 $brandName = $settings['app_name'] ?? 'BersolekMart';
 $brandTagline = $settings['app_tagline'] ?? 'Marketplace UMKM Probolinggo';
-$cartCount = (int) ($cartCount ?? (session()->get('user_id') ? model(\App\Models\CartModel::class)->getItemCount((int) session()->get('user_id')) : 0));
+$cartCount = (int) ($cartCount ?? 0);
 $uri = uri_string();
 ?>
 <!DOCTYPE html>

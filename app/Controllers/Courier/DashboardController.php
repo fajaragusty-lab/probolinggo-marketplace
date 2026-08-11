@@ -6,6 +6,8 @@ use App\Controllers\BaseController;
 
 class DashboardController extends BaseController
 {
+    private const DEFAULT_COURIER_EARNING_RATIO = 0.7;
+
     public function index()
     {
         $roles = session()->get('roles') ?? [];
@@ -173,7 +175,7 @@ class DashboardController extends BaseController
             $proofPath = 'uploads/shipments/' . $proofName;
         }
 
-        $earning = (int) ($shipment['courier_earning'] ?: floor(((int) $shipment['delivery_fee']) * 0.7));
+        $earning = (int) ($shipment['courier_earning'] ?: floor(((int) $shipment['delivery_fee']) * self::DEFAULT_COURIER_EARNING_RATIO));
 
         $db->table('shipments')->where('id', $shipmentId)->update([
             'status' => 'DELIVERED',

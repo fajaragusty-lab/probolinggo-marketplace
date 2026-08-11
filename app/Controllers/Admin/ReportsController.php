@@ -38,15 +38,11 @@ class ReportsController extends BaseAdminController
     private function exportCsv(string $type, string $from, string $to)
     {
         $db = \Config\Database::connect();
-
-        $builders = [
-            'sales' => $db->table('orders')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
-            'payments' => $db->table('payments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
-            'shipments' => $db->table('shipments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
-        ];
-
-        $resolvedType = array_key_exists($type, $builders) ? $type : 'sales';
-        $builder = $builders[$resolvedType];
+        $resolvedType = in_array($type, ['sales', 'payments', 'shipments'], true) ? $type : 'sales';
+        $table = $resolvedType === 'sales' ? 'orders' : ($resolvedType === 'payments' ? 'payments' : 'shipments');
+        $builder = $db->table($table)
+            ->where('DATE(created_at) >=', $from)
+            ->where('DATE(created_at) <=', $to);
         $rows = $builder->get()->getResultArray();
 
         $filename = preg_replace('/[^a-zA-Z0-9._-]/', '', 'report-' . $resolvedType . '-' . date('YmdHis') . '.csv');
