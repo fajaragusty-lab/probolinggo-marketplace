@@ -28,6 +28,9 @@ $routes->group('', ['filter' => 'auth:customer'], static function ($routes) {
 
     $routes->get('orders', 'Customer\OrderController::index');
     $routes->get('orders/(:num)', 'Customer\OrderController::show/$1');
+    $routes->get('orders/(:num)/tracking', 'Customer\OrderController::tracking/$1');
+    $routes->post('orders/(:num)/reviews', 'Customer\OrderController::review/$1');
+    $routes->get('reviews', 'Customer\OrderController::reviews');
 
     $routes->get('addresses', 'Customer\AddressController::index');
     $routes->get('addresses/create', 'Customer\AddressController::create');
@@ -87,7 +90,12 @@ $routes->group('courier', ['filter' => 'auth:courier'], static function ($routes
     $routes->get('dashboard', 'Courier\DashboardController::index');
     $routes->post('shipments/(:num)/accept', 'Courier\DashboardController::accept/$1');
     $routes->post('status', 'Courier\DashboardController::toggleStatus');
+    $routes->post('shipments/(:num)/arrive-pickup', 'Courier\DashboardController::arrivePickup/$1');
     $routes->post('shipments/(:num)/pickup', 'Courier\DashboardController::pickup/$1');
     $routes->post('shipments/(:num)/delivery', 'Courier\DashboardController::onDelivery/$1');
+    $routes->post('shipments/(:num)/arrive-destination', 'Courier\DashboardController::arriveDestination/$1');
+    $routes->post('shipments/(:num)/verify-otp', 'Courier\DashboardController::verifyOtp/$1');
+    $routes->post('shipments/(:num)/proof', 'Courier\DashboardController::uploadProof/$1');
     $routes->post('shipments/(:num)/complete', 'Courier\DashboardController::complete/$1');
+    $routes->post('shipments/(:num)/track', 'Courier\DashboardController::track/$1');
 });
