@@ -35,30 +35,18 @@ class AdminAnalyticsService
 
     public function kpis(?string $from = null, ?string $to = null): array
     {
-        $orders = $this->db->table('orders');
+        $ordersQuery = $this->db->table('orders')
+            ->select("COALESCE(SUM(total),0) as gmv, COUNT(*) as total_orders,
+                SUM(CASE WHEN status = 'PENDING_PAYMENT' THEN 1 ELSE 0 END) as pending_orders,
+                SUM(CASE WHEN status IN ('COMPLETED', 'FEEDBACK') THEN 1 ELSE 0 END) as completed_orders,
+                SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled_orders", false);
+
         if ($from && $to) {
-            $orders->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to);
+            $ordersQuery->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to);
         }
-        $orderRows = $orders->get()->getResultArray();
+        $orderAgg = $ordersQuery->get()->getRowArray() ?: [];
 
-        $gmv = 0;
-        $pending = 0;
-        $completed = 0;
-        $cancelled = 0;
-        foreach ($orderRows as $row) {
-            $gmv += (int) $row['total'];
-            if ($row['status'] === 'PENDING_PAYMENT') {
-                $pending++;
-            }
-            if (in_array($row['status'], ['COMPLETED', 'FEEDBACK'], true)) {
-                $completed++;
-            }
-            if ($row['status'] === 'CANCELLED') {
-                $cancelled++;
-            }
-        }
-
-        $paidPayments = $this->db->table('payments')->selectSum('amount')->where('status', 'PAID');
+        $paidPayments = $this->db->table('payments')->select('COALESCE(SUM(amount),0) as revenue', false)->where('status', 'PAID');
         if ($from && $to) {
             $paidPayments->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to);
         }
@@ -75,12 +63,12 @@ class AdminAnalyticsService
         $pendingCouriers = $this->db->table('couriers')->where('verification_status', 'PENDING')->countAllResults();
 
         return [
-            'gmv' => $gmv,
-            'revenue' => (int) ($revenueRow['amount'] ?? 0),
-            'total_orders' => count($orderRows),
-            'pending_orders' => $pending,
-            'completed_orders' => $completed,
-            'cancelled_orders' => $cancelled,
+            'gmv' => (int) ($orderAgg['gmv'] ?? 0),
+            'revenue' => (int) ($revenueRow['revenue'] ?? 0),
+            'total_orders' => (int) ($orderAgg['total_orders'] ?? 0),
+            'pending_orders' => (int) ($orderAgg['pending_orders'] ?? 0),
+            'completed_orders' => (int) ($orderAgg['completed_orders'] ?? 0),
+            'cancelled_orders' => (int) ($orderAgg['cancelled_orders'] ?? 0),
             'total_customers' => $totalCustomers,
             'active_customers' => $activeCustomers,
             'total_umkm' => $totalUmkm,
@@ -99,11 +87,15 @@ class AdminAnalyticsService
 
     public function ordersOverTime(int $days = 14): array
     {
-        $rows = $this->db->query(
-            'SELECT DATE(created_at) as d, COUNT(*) as total, COALESCE(SUM(total),0) as revenue FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY) GROUP BY DATE(created_at) ORDER BY d ASC',
-            [$days]
-        )->getResultArray();
-        return $rows;
+        $fromDate = date('Y-m-d', strtotime('-' . max(0, $days - 1) . ' days'));
+
+        return $this->db->table('orders')
+            ->select('DATE(created_at) as d, COUNT(*) as total, COALESCE(SUM(total),0) as revenue', false)
+            ->where('DATE(created_at) >=', $fromDate)
+            ->groupBy('DATE(created_at)')
+            ->orderBy('d', 'ASC')
+            ->get()
+            ->getResultArray();
     }
 
     public function statusDistribution(): array
@@ -135,11 +127,12 @@ class AdminAnalyticsService
 
     private function activeCustomers(?string $from, ?string $to): int
     {
-        $q = $this->db->table('orders')->select('customer_id')->groupBy('customer_id');
+        $builder = $this->db->table('orders')->select('COUNT(DISTINCT customer_id) as total', false);
         if ($from && $to) {
-            $q->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to);
+            $builder->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to);
         }
+        $row = $builder->get()->getRowArray();
 
-        return count($q->get()->getResultArray());
+        return (int) ($row['total'] ?? 0);
     }
 }

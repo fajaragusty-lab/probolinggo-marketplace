@@ -8,7 +8,8 @@ class StatisticsController extends BaseAdminController
 {
     public function index()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $analytics = new AdminAnalyticsService();
         $preset = (string) ($this->request->getGet('range') ?: 'last7');
         $range = $analytics->parseRange($preset, $this->request->getGet('from'), $this->request->getGet('to'));

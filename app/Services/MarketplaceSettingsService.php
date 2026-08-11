@@ -19,24 +19,11 @@ class MarketplaceSettingsService
 
     public function set(string $key, ?string $value): void
     {
-        $table = $this->db->table('marketplace_settings');
-        $now   = date('Y-m-d H:i:s');
-        $exists = $table->where('setting_key', $key)->get()->getRowArray();
-
-        if ($exists) {
-            $table->where('setting_key', $key)->update([
-                'setting_value' => $value,
-                'updated_at'    => $now,
-            ]);
-            return;
-        }
-
-        $table->insert([
-            'setting_key'   => $key,
-            'setting_value' => $value,
-            'created_at'    => $now,
-            'updated_at'    => $now,
-        ]);
+        $now = date('Y-m-d H:i:s');
+        $this->db->query(
+            'INSERT INTO marketplace_settings (setting_key, setting_value, created_at, updated_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)',
+            [$key, $value, $now, $now]
+        );
     }
 
     public function all(array $defaults = []): array

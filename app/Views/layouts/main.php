@@ -1,6 +1,14 @@
-<?php $settingsService = new \App\Services\MarketplaceSettingsService();
-$brandName = $settingsService->get('app_name', 'BersolekMart');
-$brandTagline = $settingsService->get('app_tagline', 'Marketplace UMKM Probolinggo'); ?>
+<?php
+$settings = $settings ?? null;
+if (!is_array($settings)) {
+    $settings = (new \App\Services\MarketplaceSettingsService())->all([
+        'app_name' => 'BersolekMart',
+        'app_tagline' => 'Marketplace UMKM Probolinggo',
+    ]);
+}
+$brandName = $settings['app_name'] ?? 'BersolekMart';
+$brandTagline = $settings['app_tagline'] ?? 'Marketplace UMKM Probolinggo';
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>

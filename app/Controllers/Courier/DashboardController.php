@@ -47,21 +47,31 @@ class DashboardController extends BaseController
             return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
         }
 
-        $db->transStart();
-        $shipment = $db->query('SELECT * FROM shipments WHERE id = ? FOR UPDATE', [$shipmentId])->getRowArray();
-        if (!$shipment || $shipment['status'] !== 'READY_FOR_PICKUP' || !empty($shipment['courier_id'])) {
+        $db->transBegin();
+        try {
+            $shipment = $db->query('SELECT * FROM shipments WHERE id = ? FOR UPDATE', [$shipmentId])->getRowArray();
+            if (!$shipment || $shipment['status'] !== 'READY_FOR_PICKUP' || !empty($shipment['courier_id'])) {
+                $db->transRollback();
+                return redirect()->to('/courier/dashboard')->with('error', 'Shipment sudah diambil courier lain atau tidak tersedia');
+            }
+
+            $db->table('shipments')->where('id', $shipmentId)->update([
+                'status' => 'ASSIGNED',
+                'courier_id' => $courier['id'],
+                'assigned_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            if ($db->transStatus() === false) {
+                $db->transRollback();
+                return redirect()->to('/courier/dashboard')->with('error', 'Gagal menerima shipment');
+            }
+
+            $db->transCommit();
+            return redirect()->to('/courier/dashboard')->with('success', 'Shipment berhasil diterima');
+        } catch (\Throwable $e) {
             $db->transRollback();
-            return redirect()->to('/courier/dashboard')->with('error', 'Shipment sudah diambil courier lain atau tidak tersedia');
+            return redirect()->to('/courier/dashboard')->with('error', 'Gagal menerima shipment');
         }
-
-        $db->table('shipments')->where('id', $shipmentId)->update([
-            'status' => 'ASSIGNED',
-            'courier_id' => $courier['id'],
-            'assigned_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
-        $db->transComplete();
-
-        return redirect()->to('/courier/dashboard')->with('success', 'Shipment berhasil diterima');
     }
 }

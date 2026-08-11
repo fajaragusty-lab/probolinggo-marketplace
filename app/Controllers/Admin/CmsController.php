@@ -18,18 +18,20 @@ class CmsController extends BaseAdminController
 
     public function homepage()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         return view('admin/cms/homepage', [
             'title' => 'Homepage CMS',
             'banners' => $this->activeBanners(),
-            'featuredProducts' => $this->featuredProducts(),
-            'featuredStores' => $this->featuredStores(),
+            'featuredProducts' => $this->getFeaturedProductsData(),
+            'featuredStores' => $this->getFeaturedStoresData(),
         ]);
     }
 
     public function banners()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         return view('admin/cms/banners', [
             'title' => 'Banners',
             'banners' => $this->db->table('banners')->orderBy('sort_order', 'ASC')->get()->getResultArray(),
@@ -38,14 +40,20 @@ class CmsController extends BaseAdminController
 
     public function saveBanner()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $rules = [
             'title' => 'required|min_length[3]|max_length[150]',
-            'cta_url' => 'permit_empty|valid_url_strict',
+            'cta_url' => 'permit_empty|max_length[255]',
             'sort_order' => 'permit_empty|integer',
         ];
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
+        }
+
+        $ctaUrl = trim((string) ($this->request->getPost('cta_url') ?? ''));
+        if ($ctaUrl !== '' && !preg_match('#^(https?://|/)#i', $ctaUrl)) {
+            return redirect()->back()->withInput()->with('error', 'CTA URL harus URL absolut atau path relatif yang diawali /');
         }
 
         $id = (int) $this->request->getPost('id');
@@ -55,7 +63,7 @@ class CmsController extends BaseAdminController
             'image' => $this->request->getPost('image') ?: null,
             'mobile_image' => $this->request->getPost('mobile_image') ?: null,
             'cta_label' => $this->request->getPost('cta_label') ?: null,
-            'cta_url' => $this->request->getPost('cta_url') ?: null,
+            'cta_url' => $ctaUrl !== '' ? $ctaUrl : null,
             'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
             'is_active' => $this->request->getPost('is_active') ? 1 : 0,
             'starts_at' => $this->request->getPost('starts_at') ?: null,
@@ -79,7 +87,8 @@ class CmsController extends BaseAdminController
 
     public function featuredProducts()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $products = $this->db->table('products p')
             ->select('p.id, p.name, p.status, s.name as store_name')
             ->join('stores s', 's.id = p.store_id')
@@ -96,17 +105,23 @@ class CmsController extends BaseAdminController
 
     public function saveFeaturedProducts()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $selected = $this->request->getPost('product_ids') ?? [];
         $selected = array_map('intval', is_array($selected) ? $selected : []);
 
         $this->db->transStart();
         $this->db->table('featured_products')->update(['is_active' => 0, 'updated_at' => date('Y-m-d H:i:s')]);
 
+        $existingRows = $this->db->table('featured_products')->select('id, product_id')->get()->getResultArray();
+        $existingMap = [];
+        foreach ($existingRows as $row) {
+            $existingMap[(int) $row['product_id']] = (int) $row['id'];
+        }
+
         foreach ($selected as $i => $pid) {
-            $existing = $this->db->table('featured_products')->where('product_id', $pid)->get()->getRowArray();
-            if ($existing) {
-                $this->db->table('featured_products')->where('id', $existing['id'])->update([
+            if (isset($existingMap[$pid])) {
+                $this->db->table('featured_products')->where('id', $existingMap[$pid])->update([
                     'is_active' => 1,
                     'sort_order' => $i + 1,
                     'updated_at' => date('Y-m-d H:i:s'),
@@ -129,7 +144,8 @@ class CmsController extends BaseAdminController
 
     public function featuredStores()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $stores = $this->db->table('stores')->where('status', 'ACTIVE')->orderBy('name', 'ASC')->get()->getResultArray();
         return view('admin/cms/featured_stores', [
             'title' => 'Featured Stores',
@@ -140,16 +156,23 @@ class CmsController extends BaseAdminController
 
     public function saveFeaturedStores()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $selected = $this->request->getPost('store_ids') ?? [];
         $selected = array_map('intval', is_array($selected) ? $selected : []);
 
         $this->db->transStart();
         $this->db->table('featured_stores')->update(['is_active' => 0, 'updated_at' => date('Y-m-d H:i:s')]);
+
+        $existingRows = $this->db->table('featured_stores')->select('id, store_id')->get()->getResultArray();
+        $existingMap = [];
+        foreach ($existingRows as $row) {
+            $existingMap[(int) $row['store_id']] = (int) $row['id'];
+        }
+
         foreach ($selected as $i => $sid) {
-            $existing = $this->db->table('featured_stores')->where('store_id', $sid)->get()->getRowArray();
-            if ($existing) {
-                $this->db->table('featured_stores')->where('id', $existing['id'])->update([
+            if (isset($existingMap[$sid])) {
+                $this->db->table('featured_stores')->where('id', $existingMap[$sid])->update([
                     'is_active' => 1,
                     'sort_order' => $i + 1,
                     'updated_at' => date('Y-m-d H:i:s'),
@@ -172,7 +195,8 @@ class CmsController extends BaseAdminController
 
     public function settings()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $service = new MarketplaceSettingsService();
         return view('admin/cms/settings', [
             'title' => 'Marketplace Settings',
@@ -190,7 +214,8 @@ class CmsController extends BaseAdminController
 
     public function saveSettings()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
         $service = new MarketplaceSettingsService();
         $keys = [
             'app_name',
@@ -203,7 +228,11 @@ class CmsController extends BaseAdminController
         ];
 
         foreach ($keys as $key) {
-            $service->set($key, (string) ($this->request->getPost($key) ?? ''));
+            $value = (string) ($this->request->getPost($key) ?? '');
+            if ($key === 'maintenance_mode') {
+                $value = $value === '1' ? '1' : '0';
+            }
+            $service->set($key, $value);
         }
 
         $this->audit->log('marketplace_settings_updated', 'marketplace_settings', null, ['keys' => $keys]);
@@ -226,7 +255,7 @@ class CmsController extends BaseAdminController
             ->get()->getResultArray();
     }
 
-    private function featuredProducts(): array
+    private function getFeaturedProductsData(): array
     {
         return $this->db->table('featured_products fp')
             ->select('fp.*, p.name, p.slug, p.price, p.stock')
@@ -236,7 +265,7 @@ class CmsController extends BaseAdminController
             ->get()->getResultArray();
     }
 
-    private function featuredStores(): array
+    private function getFeaturedStoresData(): array
     {
         return $this->db->table('featured_stores fs')
             ->select('fs.*, s.name, s.slug, s.rating_avg')

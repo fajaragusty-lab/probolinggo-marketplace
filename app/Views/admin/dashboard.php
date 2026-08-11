@@ -26,10 +26,10 @@
 
 <div class="row g-3 mt-1">
     <div class="col-lg-6"><div class="card shadow-sm"><div class="card-header">Pending Actions</div><div class="card-body small">
-        <div>UMKM verification pending: <strong><?= count($pendingUmkm) ?></strong></div>
-        <div>Courier verification pending: <strong><?= count($pendingCouriers) ?></strong></div>
-        <div>Product moderation pending: <strong><?= count($pendingProducts) ?></strong></div>
-        <div>Feedback moderation pending: <strong><?= count($pendingFeedbacks) ?></strong></div>
+        <div>UMKM verification pending: <strong><?= (int)$pendingUmkmCount ?></strong></div>
+        <div>Courier verification pending: <strong><?= (int)$pendingCouriersCount ?></strong></div>
+        <div>Product moderation pending: <strong><?= (int)$pendingProductsCount ?></strong></div>
+        <div>Feedback moderation pending: <strong><?= (int)$pendingFeedbacksCount ?></strong></div>
     </div></div></div>
     <div class="col-lg-6"><div class="card shadow-sm"><div class="card-header">Top Products</div><div class="card-body p-0"><table class="table table-sm mb-0"><tbody>
         <?php foreach ($topProducts as $p): ?><tr><td><?= esc($p['name']) ?></td><td class="text-end"><?= (int)$p['sold_count'] ?> sold</td></tr><?php endforeach; ?>

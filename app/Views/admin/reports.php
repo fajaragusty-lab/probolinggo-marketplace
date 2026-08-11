@@ -12,8 +12,8 @@
     <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('admin/reports?from=' . urlencode($from) . '&to=' . urlencode($to) . '&export=csv&type=shipments') ?>">Export Shipment CSV</a>
 </div>
 <div class="row g-3">
-<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Sales Orders</div><div class="h4 mb-0"><?= count($sales) ?></div></div></div></div>
-<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Payment Rows</div><div class="h4 mb-0"><?= count($payments) ?></div></div></div></div>
-<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Shipment Rows</div><div class="h4 mb-0"><?= count($shipments) ?></div></div></div></div>
+<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Sales Orders</div><div class="h4 mb-0"><?= (int)$salesCount ?></div></div></div></div>
+<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Payment Rows</div><div class="h4 mb-0"><?= (int)$paymentsCount ?></div></div></div></div>
+<div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">Shipment Rows</div><div class="h4 mb-0"><?= (int)$shipmentsCount ?></div></div></div></div>
 </div>
 <?= $this->endSection() ?>

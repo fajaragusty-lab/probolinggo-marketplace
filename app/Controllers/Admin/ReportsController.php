@@ -6,40 +6,48 @@ class ReportsController extends BaseAdminController
 {
     public function index()
     {
-        $this->guard();
+        $guard = $this->guard();
+        if ($guard) {
+            return $guard;
+        }
         $db = \Config\Database::connect();
         $from = (string) ($this->request->getGet('from') ?: date('Y-m-01'));
         $to = (string) ($this->request->getGet('to') ?: date('Y-m-d'));
 
-        $sales = $db->table('orders')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->get()->getResultArray();
-        $payments = $db->table('payments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->get()->getResultArray();
-        $shipments = $db->table('shipments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->get()->getResultArray();
-
         if ($this->request->getGet('export') === 'csv') {
             $type = (string) ($this->request->getGet('type') ?: 'sales');
-            return $this->exportCsv($type, compact('sales', 'payments', 'shipments'));
+            return $this->exportCsv($type, $from, $to);
         }
+
+        $salesCount = $db->table('orders')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->countAllResults();
+        $paymentsCount = $db->table('payments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->countAllResults();
+        $shipmentsCount = $db->table('shipments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to)->countAllResults();
 
         return view('admin/reports', [
             'title' => 'Reports',
             'from' => $from,
             'to' => $to,
-            'sales' => $sales,
-            'payments' => $payments,
-            'shipments' => $shipments,
+            'salesCount' => $salesCount,
+            'paymentsCount' => $paymentsCount,
+            'shipmentsCount' => $shipmentsCount,
         ]);
     }
 
-    private function exportCsv(string $type, array $datasets)
+    private function exportCsv(string $type, string $from, string $to)
     {
-        $map = [
-            'sales' => $datasets['sales'],
-            'payments' => $datasets['payments'],
-            'shipments' => $datasets['shipments'],
-        ];
-        $rows = $map[$type] ?? $map['sales'];
+        $db = \Config\Database::connect();
 
-        $filename = 'report-' . $type . '-' . date('YmdHis') . '.csv';
+        $builders = [
+            'sales' => $db->table('orders')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
+            'payments' => $db->table('payments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
+            'shipments' => $db->table('shipments')->where('DATE(created_at) >=', $from)->where('DATE(created_at) <=', $to),
+        ];
+
+        $resolvedType = array_key_exists($type, $builders) ? $type : 'sales';
+        $builder = $builders[$resolvedType];
+        $rows = $builder->get()->getResultArray();
+
+        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '', 'report-' . $resolvedType . '-' . date('YmdHis') . '.csv');
         $fh = fopen('php://temp', 'r+');
 
         if (!empty($rows)) {

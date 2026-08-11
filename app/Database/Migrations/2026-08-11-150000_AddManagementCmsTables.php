@@ -40,8 +40,8 @@ class AddManagementCmsTables extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->addKey(['is_active', 'sort_order']);
-        $this->forge->addForeignKey('created_by', 'users', 'id', 'SET NULL', 'CASCADE');
-        $this->forge->addForeignKey('updated_by', 'users', 'id', 'SET NULL', 'CASCADE');
+        $this->forge->addForeignKey('created_by', 'users', 'id', 'SET NULL', 'RESTRICT');
+        $this->forge->addForeignKey('updated_by', 'users', 'id', 'SET NULL', 'RESTRICT');
         $this->forge->createTable('banners', true);
 
         // featured_products
