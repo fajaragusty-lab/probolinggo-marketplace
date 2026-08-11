@@ -1,0 +1,8 @@
+<?= $this->extend('layouts/umkm') ?>
+<?= $this->section('content') ?>
+<h1 class="h5 mb-3">Pesanan Toko</h1>
+<div class="bm-card p-3 mb-3">
+    <form method="get" class="row g-2"><div class="col-md-4"><label class="form-label small bm-muted">Filter Status</label><select name="status" class="form-select"><option value="">Semua</option><?php foreach (['PAID','PROCESSING','READY_FOR_PICKUP','COMPLETED'] as $st): ?><option value="<?= $st ?>" <?= $status === $st ? 'selected' : '' ?>><?= $st ?></option><?php endforeach; ?></select></div><div class="col-md-2 d-flex align-items-end"><button class="btn bm-btn-primary w-100">Filter</button></div></form>
+</div>
+<div class="bm-card p-3"><div class="table-responsive"><table class="bm-table"><thead><tr><th>Order</th><th>Produk</th><th>Qty</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody><?php foreach($orders as $o): ?><tr><td><?= esc($o['order_number']) ?></td><td><?= esc($o['product_name']) ?></td><td><?= (int)$o['quantity'] ?></td><td><?= bm_currency((int)$o['subtotal']) ?></td><td><span class="bm-status <?= bm_status_class($o['status']) ?>"><?= esc($o['status']) ?></span></td><td><form method="post" action="<?= site_url('umkm/orders/' . (int)$o['order_id'] . '/status') ?>" class="d-flex gap-1"><?= csrf_field() ?><select name="status" class="form-select form-select-sm"><?php foreach (['PAID','PROCESSING','READY_FOR_PICKUP','COMPLETED'] as $s): ?><option value="<?= $s ?>" <?= $o['status'] === $s ? 'selected' : '' ?>><?= $s ?></option><?php endforeach; ?></select><button class="btn btn-sm btn-outline-primary">Update</button></form></td></tr><?php endforeach; ?></tbody></table></div></div>
+<?= $this->endSection() ?>

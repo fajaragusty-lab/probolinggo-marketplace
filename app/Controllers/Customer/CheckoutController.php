@@ -17,13 +17,23 @@ class CheckoutController extends BaseController
         }
         $addresses = \Config\Database::connect()->table('addresses')
             ->where('user_id', $userId)->orderBy('is_default', 'DESC')->get()->getResultArray();
+        $paymentMethods = \Config\Database::connect()->table('payment_methods')
+            ->where('is_active', 1)
+            ->orderBy('method_name', 'ASC')
+            ->get()->getResultArray();
+        $groupedByStore = [];
+        foreach ($cartData['items'] as $item) {
+            $groupedByStore[$item['store_name']][] = $item;
+        }
         $shippingFee = (int) (env('SHIPPING_BASE_FEE') ?: 10000);
         return view('customer/checkout', [
             'items' => $cartData['items'],
+            'groupedByStore' => $groupedByStore,
             'subtotal' => $cartData['subtotal'],
             'shippingFee' => $shippingFee,
             'total' => $cartData['subtotal'] + $shippingFee,
             'addresses' => $addresses,
+            'paymentMethods' => $paymentMethods,
         ]);
     }
 

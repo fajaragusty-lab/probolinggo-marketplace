@@ -25,7 +25,7 @@ class CartModel extends Model
     public function getItems(int $cartId): array
     {
         return $this->db->table('cart_items ci')
-            ->select('ci.*, p.name as product_name, p.slug as product_slug, p.stock, p.status as product_status, s.name as store_name')
+            ->select("ci.*, p.name as product_name, p.slug as product_slug, p.stock, p.status as product_status, s.name as store_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
             ->join('products p', 'p.id = ci.product_id')
             ->join('stores s', 's.id = p.store_id')
             ->where('ci.cart_id', $cartId)

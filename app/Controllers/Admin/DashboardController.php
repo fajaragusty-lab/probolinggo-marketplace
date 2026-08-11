@@ -14,6 +14,16 @@ class DashboardController extends BaseAdminController
         }
         $analytics = new AdminAnalyticsService();
         $kpis = $analytics->kpis();
+        $db = \Config\Database::connect();
+        $recentActivities = $db->table('audit_logs')
+            ->orderBy('created_at', 'DESC')
+            ->limit(8)
+            ->get()->getResultArray();
+        $pendingOrders = $db->table('orders')
+            ->whereIn('status', ['PENDING_PAYMENT', 'PAID', 'PROCESSING'])
+            ->orderBy('created_at', 'DESC')
+            ->limit(8)
+            ->get()->getResultArray();
 
         return view('admin/dashboard', [
             'title' => 'Admin Dashboard',
@@ -26,6 +36,8 @@ class DashboardController extends BaseAdminController
             'pendingCouriersCount' => (int) ($kpis['pending_couriers'] ?? 0),
             'pendingProductsCount' => (int) ($kpis['pending_moderation'] ?? 0),
             'pendingFeedbacksCount' => (int) ($kpis['pending_feedback'] ?? 0),
+            'recentActivities' => $recentActivities,
+            'pendingOrders' => $pendingOrders,
         ]);
     }
 }

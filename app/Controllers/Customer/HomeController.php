@@ -33,6 +33,33 @@ class HomeController extends BaseController
         }
 
         $latest = $productModel->getActiveWithStore([], 12);
+        $trending = $db->table('products p')
+            ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
+            ->join('stores s', 's.id = p.store_id')
+            ->join('categories c', 'c.id = p.category_id')
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('p.sold_count', 'DESC')
+            ->limit(8)
+            ->get()->getResultArray();
+        $popular = $db->table('products p')
+            ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
+            ->join('stores s', 's.id = p.store_id')
+            ->join('categories c', 'c.id = p.category_id')
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('p.rating_avg', 'DESC')
+            ->limit(8)
+            ->get()->getResultArray();
+        $recommended = $db->table('products p')
+            ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
+            ->join('stores s', 's.id = p.store_id')
+            ->join('categories c', 'c.id = p.category_id')
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('RAND()')
+            ->limit(8)
+            ->get()->getResultArray();
         $stores = $db->table('featured_stores fs')
             ->select('s.*')
             ->join('stores s', 's.id = fs.store_id')
@@ -69,7 +96,7 @@ class HomeController extends BaseController
             'app_tagline' => 'Marketplace UMKM Kota Probolinggo',
         ]);
 
-        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount', 'banners', 'settings'));
+        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount', 'banners', 'settings', 'trending', 'popular', 'recommended'));
     }
 
     public function search()
@@ -122,7 +149,29 @@ class HomeController extends BaseController
         if (!$product) {
             throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
         }
-        return view('customer/product', ['product' => $product]);
+        $db = \Config\Database::connect();
+        $reviews = $db->table('feedbacks f')
+            ->select('f.rating, f.comment, f.created_at, u.name as customer_name')
+            ->join('users u', 'u.id = f.customer_id')
+            ->where('f.product_id', $product['id'])
+            ->where('f.status', 'APPROVED')
+            ->orderBy('f.created_at', 'DESC')
+            ->limit(10)
+            ->get()->getResultArray();
+
+        $related = $db->table('products p')
+            ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
+            ->join('stores s', 's.id = p.store_id')
+            ->join('categories c', 'c.id = p.category_id')
+            ->where('p.category_id', $product['category_id'])
+            ->where('p.id !=', $product['id'])
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('p.sold_count', 'DESC')
+            ->limit(8)
+            ->get()->getResultArray();
+
+        return view('customer/product', ['product' => $product, 'reviews' => $reviews, 'related' => $related]);
     }
 
     public function store(string $slug)

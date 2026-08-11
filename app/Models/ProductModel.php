@@ -20,7 +20,7 @@ class ProductModel extends Model
 
     public function getActiveWithStore(array $filters = [], int $perPage = 12)
     {
-        $b = $this->select('products.*, stores.name as store_name, stores.slug as store_slug, categories.name as category_name')
+        $b = $this->select("products.*, stores.name as store_name, stores.slug as store_slug, categories.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = products.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
             ->join('stores', 'stores.id = products.store_id')
             ->join('categories', 'categories.id = products.category_id')
             ->where('products.status', 'ACTIVE')
@@ -45,7 +45,7 @@ class ProductModel extends Model
 
     public function findBySlug(string $slug): ?array
     {
-        $p = $this->select('products.*, stores.name as store_name, stores.slug as store_slug, categories.name as category_name')
+        $p = $this->select('products.*, stores.name as store_name, stores.slug as store_slug, stores.address as store_address, stores.district as store_district, stores.city as store_city, stores.logo as store_logo, categories.name as category_name')
             ->join('stores', 'stores.id = products.store_id')
             ->join('categories', 'categories.id = products.category_id')
             ->where('products.slug', $slug)

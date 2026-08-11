@@ -1,38 +1,29 @@
 <?= $this->extend('layouts/admin') ?>
 <?= $this->section('content') ?>
-<h1 class="h4 mb-3">Platform Dashboard</h1>
-<div class="row g-3 mb-4">
-    <?php foreach (['gmv'=>'GMV','revenue'=>'Revenue','total_orders'=>'Total Orders','pending_orders'=>'Pending Orders','completed_orders'=>'Completed Orders','cancelled_orders'=>'Cancelled Orders','total_customers'=>'Customers','total_umkm'=>'UMKM','total_products'=>'Products','total_couriers'=>'Couriers'] as $key => $label): ?>
-    <div class="col-6 col-xl-3"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small"><?= esc($label) ?></div><div class="fw-bold fs-5"><?= number_format((int)($kpis[$key] ?? 0),0,',','.') ?></div></div></div></div>
+<div class="bm-kpi-grid mb-3">
+    <?php foreach (['gmv'=>'GMV','revenue'=>'Revenue','total_orders'=>'Orders','total_customers'=>'Customers','total_umkm'=>'UMKM','total_couriers'=>'Couriers','pending_orders'=>'Pending Orders','total_products'=>'Products'] as $key => $label): ?>
+        <div class="bm-kpi"><div class="small bm-muted"><?= esc($label) ?></div><div class="h5 mb-0"><?= number_format((int)($kpis[$key] ?? 0),0,',','.') ?></div></div>
     <?php endforeach; ?>
 </div>
 
-<div class="row g-3">
+<div class="row g-3 mb-3">
     <div class="col-lg-6">
-        <div class="card shadow-sm"><div class="card-header">Orders Over Time</div><div class="card-body p-0">
-            <table class="table table-sm mb-0"><thead><tr><th>Date</th><th>Orders</th><th>Revenue</th></tr></thead><tbody>
-            <?php foreach ($ordersOverTime as $row): ?><tr><td><?= esc($row['d']) ?></td><td><?= (int)$row['total'] ?></td><td>Rp <?= number_format((int)$row['revenue'],0,',','.') ?></td></tr><?php endforeach; ?>
-            </tbody></table>
-        </div></div>
+        <div class="bm-card p-3 h-100">
+            <h2 class="h6 mb-2">Status Order</h2>
+            <table class="bm-table"><thead><tr><th>Status</th><th>Total</th></tr></thead><tbody><?php foreach ($statusDistribution as $row): ?><tr><td><?= esc($row['status']) ?></td><td><?= (int)$row['total'] ?></td></tr><?php endforeach; ?></tbody></table>
+        </div>
     </div>
     <div class="col-lg-6">
-        <div class="card shadow-sm"><div class="card-header">Order Status Distribution</div><div class="card-body p-0">
-            <table class="table table-sm mb-0"><thead><tr><th>Status</th><th>Total</th></tr></thead><tbody>
-            <?php foreach ($statusDistribution as $row): ?><tr><td><?= esc($row['status']) ?></td><td><?= (int)$row['total'] ?></td></tr><?php endforeach; ?>
-            </tbody></table>
-        </div></div>
+        <div class="bm-card p-3 h-100">
+            <h2 class="h6 mb-2">Order Terbaru Butuh Aksi</h2>
+            <table class="bm-table"><thead><tr><th>Order</th><th>Status</th><th>Total</th></tr></thead><tbody><?php foreach ($pendingOrders as $order): ?><tr><td><?= esc($order['order_number']) ?></td><td><span class="bm-status <?= bm_status_class($order['status']) ?>"><?= esc($order['status']) ?></span></td><td><?= bm_currency((int)$order['total']) ?></td></tr><?php endforeach; ?></tbody></table>
+        </div>
     </div>
 </div>
 
-<div class="row g-3 mt-1">
-    <div class="col-lg-6"><div class="card shadow-sm"><div class="card-header">Pending Actions</div><div class="card-body small">
-        <div>UMKM verification pending: <strong><?= (int)$pendingUmkmCount ?></strong></div>
-        <div>Courier verification pending: <strong><?= (int)$pendingCouriersCount ?></strong></div>
-        <div>Product moderation pending: <strong><?= (int)$pendingProductsCount ?></strong></div>
-        <div>Feedback moderation pending: <strong><?= (int)$pendingFeedbacksCount ?></strong></div>
-    </div></div></div>
-    <div class="col-lg-6"><div class="card shadow-sm"><div class="card-header">Top Products</div><div class="card-body p-0"><table class="table table-sm mb-0"><tbody>
-        <?php foreach ($topProducts as $p): ?><tr><td><?= esc($p['name']) ?></td><td class="text-end"><?= (int)$p['sold_count'] ?> sold</td></tr><?php endforeach; ?>
-    </tbody></table></div></div></div>
+<div class="row g-3">
+    <div class="col-lg-4"><div class="bm-card p-3 h-100"><h2 class="h6">Top Produk</h2><table class="bm-table"><tbody><?php foreach ($topProducts as $p): ?><tr><td><?= esc($p['name']) ?></td><td class="text-end"><?= (int)$p['sold_count'] ?> sold</td></tr><?php endforeach; ?></tbody></table></div></div>
+    <div class="col-lg-4"><div class="bm-card p-3 h-100"><h2 class="h6">Top Toko</h2><table class="bm-table"><tbody><?php foreach ($topStores as $s): ?><tr><td><?= esc($s['name']) ?></td><td class="text-end"><?= bm_currency((int)$s['sales']) ?></td></tr><?php endforeach; ?></tbody></table></div></div>
+    <div class="col-lg-4"><div class="bm-card p-3 h-100"><h2 class="h6">Recent Activity</h2><?php if (empty($recentActivities)): ?><div class="small bm-muted">Belum ada aktivitas.</div><?php endif; ?><?php foreach ($recentActivities as $a): ?><div class="border-bottom py-2 small"><div class="fw-semibold"><?= esc($a['action']) ?></div><div class="bm-muted"><?= esc($a['created_at']) ?></div></div><?php endforeach; ?></div></div>
 </div>
 <?= $this->endSection() ?>

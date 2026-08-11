@@ -8,59 +8,76 @@ if (!is_array($settings)) {
 }
 $brandName = $settings['app_name'] ?? 'BersolekMart';
 $brandTagline = $settings['app_tagline'] ?? 'Marketplace UMKM Probolinggo';
+$cartCount = (int) ($cartCount ?? (session()->get('user_id') ? model(\App\Models\CartModel::class)->getItemCount((int) session()->get('user_id')) : 0));
+$uri = uri_string();
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#e85d04">
+    <meta name="theme-color" content="#1d4ed8">
     <title><?= esc($title ?? $brandName) ?> — <?= esc($brandTagline) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="manifest" href="<?= base_url('manifest.json') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>">
-    <style>
-        :root { --bm-primary: #e85d04; --bm-dark: #1a1a2e; --bm-soft: #fff8f0; }
-        body { background: var(--bm-soft); font-family: Inter, system-ui, -apple-system, sans-serif; padding-bottom: 72px; }
-        .btn-bm { background: var(--bm-primary); color: #fff; border: none; }
-        .btn-bm:hover { background: #d00000; color: #fff; }
-        .product-card { border: none; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-        .product-card .price { color: var(--bm-primary); font-weight: 700; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eee; z-index: 1030; display: flex; justify-content: space-around; padding: 8px 0 env(safe-area-inset-bottom); }
-        .bottom-nav a { color: #666; text-decoration: none; font-size: 11px; text-align: center; flex: 1; padding: 4px; }
-        .bottom-nav a.active, .bottom-nav a:hover { color: var(--bm-primary); }
-        .bottom-nav .icon { font-size: 18px; display: block; margin-bottom: 2px; }
-        .hero-bm { background: linear-gradient(135deg, #e85d04, #f48c06); color: #fff; border-radius: 0 0 24px 24px; padding: 28px 16px 24px; }
-        .badge-cart { position: absolute; top: -4px; right: 8px; background: #d00000; color: #fff; border-radius: 50%; font-size: 10px; min-width: 16px; height: 16px; line-height: 16px; }
-        .alert-fixed { position: sticky; top: 0; z-index: 1040; }
-    </style>
 </head>
 <body>
-<?php if (session()->getFlashdata('success')): ?>
-<div class="alert alert-success alert-dismissible fade show alert-fixed m-2" role="alert">
-    <?= esc(session()->getFlashdata('success')) ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
-<?php if (session()->getFlashdata('error')): ?>
-<div class="alert alert-danger alert-dismissible fade show alert-fixed m-2" role="alert">
-    <?= esc(session()->getFlashdata('error')) ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php endif; ?>
+<div class="bm-shell">
+    <header class="bm-topbar">
+        <div class="container py-2">
+            <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">
+                <a class="bm-brand" href="<?= site_url('/') ?>"><?= esc($brandName) ?></a>
+                <div class="d-none d-md-flex align-items-center gap-2">
+                    <button id="pwaInstallBtn" class="btn btn-sm btn-light border d-none">Install App</button>
+                    <span class="bm-chip"><i class="bi bi-geo-alt"></i> Probolinggo</span>
+                    <a class="btn btn-sm btn-light border" href="<?= site_url('orders') ?>">Pesanan</a>
+                    <a class="btn btn-sm btn-light border position-relative" href="<?= site_url('cart') ?>">
+                        <i class="bi bi-cart3"></i>
+                        <?php if ($cartCount > 0): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><?= $cartCount ?></span><?php endif; ?>
+                    </a>
+                    <?php if (session()->get('user_id')): ?>
+                        <a class="btn btn-sm btn-light border" href="<?= site_url('logout') ?>"><i class="bi bi-box-arrow-right"></i></a>
+                    <?php else: ?>
+                        <a class="btn btn-sm bm-btn-primary" href="<?= site_url('login') ?>">Masuk</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <form action="<?= site_url('search') ?>" method="get" class="bm-topsearch mt-2">
+                <div class="input-group">
+                    <input type="search" name="q" class="form-control" placeholder="Cari produk, toko, atau kategori" value="<?= esc(service('request')->getGet('q') ?? '') ?>">
+                    <button class="btn bm-btn-primary" type="submit"><i class="bi bi-search"></i> Cari</button>
+                </div>
+            </form>
+        </div>
+    </header>
 
-<?= $this->renderSection('content') ?>
+    <main>
+        <?php if (session()->getFlashdata('success')): ?><div class="container mt-3"><div class="alert alert-success mb-0"><?= esc(session()->getFlashdata('success')) ?></div></div><?php endif; ?>
+        <?php if (session()->getFlashdata('error')): ?><div class="container mt-3"><div class="alert alert-danger mb-0"><?= esc(session()->getFlashdata('error')) ?></div></div><?php endif; ?>
+        <?= $this->renderSection('content') ?>
+    </main>
 
-<nav class="bottom-nav d-md-none">
-    <a href="<?= site_url('/') ?>" class="<?= uri_string() === '' ? 'active' : '' ?>"><span class="icon"><i class="bi bi-house"></i></span>Home</a>
-    <a href="<?= site_url('search') ?>" class="<?= str_starts_with(uri_string(), 'search') ? 'active' : '' ?>"><span class="icon"><i class="bi bi-search"></i></span>Cari</a>
-    <a href="<?= site_url('categories') ?>" class="<?= str_starts_with(uri_string(), 'categories') || str_starts_with(uri_string(), 'category') ? 'active' : '' ?>"><span class="icon"><i class="bi bi-grid"></i></span>Kategori</a>
-    <a href="<?= site_url('cart') ?>" class="position-relative <?= uri_string() === 'cart' ? 'active' : '' ?>">
-        <span class="icon"><i class="bi bi-cart3"></i></span>Keranjang
-        <?php if (!empty($cartCount ?? 0)): ?><span class="badge-cart"><?= (int)$cartCount ?></span><?php endif; ?>
-    </a>
-    <a href="<?= session()->get('user_id') ? site_url('addresses') : site_url('login') ?>"><span class="icon"><i class="bi bi-person"></i></span>Akun</a>
+    <footer class="bm-footer">
+        <div class="container">
+            <div class="row g-3">
+                <div class="col-md-4"><strong><?= esc($brandName) ?></strong><div class="small mt-2">Marketplace UMKM, belanja lokal dengan pengiriman cepat.</div></div>
+                <div class="col-6 col-md-2"><div class="small fw-semibold mb-2">Marketplace</div><div class="small">Produk</div><div class="small">Kategori</div><div class="small">Toko</div></div>
+                <div class="col-6 col-md-2"><div class="small fw-semibold mb-2">UMKM</div><div class="small">Pusat Seller</div><div class="small">Promosi</div><div class="small">Laporan</div></div>
+                <div class="col-6 col-md-2"><div class="small fw-semibold mb-2">Bantuan</div><div class="small">Kontak</div><div class="small">FAQ</div><div class="small">Pengiriman</div></div>
+                <div class="col-6 col-md-2"><div class="small fw-semibold mb-2">Legal</div><div class="small">Privasi</div><div class="small">S&K</div></div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<nav class="bm-mobile-nav d-md-none">
+    <a href="<?= site_url('/') ?>" class="<?= $uri === '' ? 'active' : '' ?>"><i class="bi bi-house d-block"></i>Home</a>
+    <a href="<?= site_url('search') ?>" class="<?= str_starts_with($uri, 'search') ? 'active' : '' ?>"><i class="bi bi-search d-block"></i>Cari</a>
+    <a href="<?= site_url('cart') ?>" class="<?= $uri === 'cart' ? 'active' : '' ?>"><i class="bi bi-cart3 d-block"></i>Cart</a>
+    <a href="<?= site_url('orders') ?>" class="<?= str_starts_with($uri, 'orders') ? 'active' : '' ?>"><i class="bi bi-receipt d-block"></i>Order</a>
+    <a href="<?= session()->get('user_id') ? site_url('addresses') : site_url('login') ?>"><i class="bi bi-person d-block"></i>Akun</a>
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

@@ -32,9 +32,16 @@ class CmsController extends BaseAdminController
     {
         $guard = $this->guard();
         if ($guard) { return $guard; }
+        $editId = (int) ($this->request->getGet('edit') ?? 0);
+        $editBanner = null;
+        if ($editId > 0) {
+            $editBanner = $this->db->table('banners')->where('id', $editId)->get()->getRowArray();
+        }
+
         return view('admin/cms/banners', [
-            'title' => 'Banners',
-            'banners' => $this->db->table('banners')->orderBy('sort_order', 'ASC')->get()->getResultArray(),
+            'title' => 'Banner Management',
+            'banners' => $this->db->table('banners')->orderBy('sort_order', 'ASC')->orderBy('id', 'DESC')->get()->getResultArray(),
+            'editBanner' => $editBanner,
         ]);
     }
 
@@ -42,6 +49,7 @@ class CmsController extends BaseAdminController
     {
         $guard = $this->guard();
         if ($guard) { return $guard; }
+
         $rules = [
             'title' => 'required|min_length[3]|max_length[150]',
             'cta_url' => 'permit_empty|max_length[255]',
@@ -57,11 +65,22 @@ class CmsController extends BaseAdminController
         }
 
         $id = (int) $this->request->getPost('id');
+        $existing = $id > 0 ? $this->db->table('banners')->where('id', $id)->get()->getRowArray() : null;
+
+        $desktopImage = $this->uploadBannerFile('image_file', $existing['image'] ?? null);
+        if (isset($desktopImage['error'])) {
+            return redirect()->back()->withInput()->with('error', $desktopImage['error']);
+        }
+        $mobileImage = $this->uploadBannerFile('mobile_image_file', $existing['mobile_image'] ?? null);
+        if (isset($mobileImage['error'])) {
+            return redirect()->back()->withInput()->with('error', $mobileImage['error']);
+        }
+
         $data = [
             'title' => $this->request->getPost('title'),
             'subtitle' => $this->request->getPost('subtitle'),
-            'image' => $this->request->getPost('image') ?: null,
-            'mobile_image' => $this->request->getPost('mobile_image') ?: null,
+            'image' => $desktopImage['path'] ?? ($existing['image'] ?? null),
+            'mobile_image' => $mobileImage['path'] ?? ($existing['mobile_image'] ?? null),
             'cta_label' => $this->request->getPost('cta_label') ?: null,
             'cta_url' => $ctaUrl !== '' ? $ctaUrl : null,
             'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
@@ -83,6 +102,68 @@ class CmsController extends BaseAdminController
         }
 
         return redirect()->to('/admin/banners')->with('success', 'Banner saved');
+    }
+
+    public function deleteBanner(int $id)
+    {
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
+
+        $banner = $this->db->table('banners')->where('id', $id)->get()->getRowArray();
+        if (!$banner) {
+            return redirect()->to('/admin/banners')->with('error', 'Banner tidak ditemukan');
+        }
+
+        $this->db->table('banners')->where('id', $id)->delete();
+        $this->audit->log('banner_deleted', 'banner', $id, ['title' => $banner['title']]);
+        return redirect()->to('/admin/banners')->with('success', 'Banner deleted');
+    }
+
+    public function duplicateBanner(int $id)
+    {
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
+
+        $banner = $this->db->table('banners')->where('id', $id)->get()->getRowArray();
+        if (!$banner) {
+            return redirect()->to('/admin/banners')->with('error', 'Banner tidak ditemukan');
+        }
+
+        unset($banner['id']);
+        $banner['title'] = $banner['title'] . ' (Copy)';
+        $banner['is_active'] = 0;
+        $banner['created_by'] = (int) session()->get('user_id');
+        $banner['updated_by'] = (int) session()->get('user_id');
+        $banner['created_at'] = date('Y-m-d H:i:s');
+        $banner['updated_at'] = date('Y-m-d H:i:s');
+        $banner['sort_order'] = ((int) $banner['sort_order']) + 1;
+
+        $this->db->table('banners')->insert($banner);
+        $newId = (int) $this->db->insertID();
+        $this->audit->log('banner_duplicated', 'banner', $newId, ['source_id' => $id]);
+
+        return redirect()->to('/admin/banners')->with('success', 'Banner duplicated as draft');
+    }
+
+    public function toggleBanner(int $id)
+    {
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
+
+        $banner = $this->db->table('banners')->where('id', $id)->get()->getRowArray();
+        if (!$banner) {
+            return redirect()->to('/admin/banners')->with('error', 'Banner tidak ditemukan');
+        }
+
+        $next = (int) ($banner['is_active'] ? 0 : 1);
+        $this->db->table('banners')->where('id', $id)->update([
+            'is_active' => $next,
+            'updated_by' => (int) session()->get('user_id'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        $this->audit->log($next ? 'banner_published' : 'banner_unpublished', 'banner', $id);
+
+        return redirect()->to('/admin/banners')->with('success', $next ? 'Banner published' : 'Banner unpublished');
     }
 
     public function featuredProducts()
@@ -237,6 +318,29 @@ class CmsController extends BaseAdminController
 
         $this->audit->log('marketplace_settings_updated', 'marketplace_settings', null, ['keys' => $keys]);
         return redirect()->to('/admin/settings')->with('success', 'Settings updated');
+    }
+
+    private function uploadBannerFile(string $field, ?string $existingPath = null): array
+    {
+        $file = $this->request->getFile($field);
+        if (!$file || !$file->isValid() || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return ['path' => $existingPath];
+        }
+
+        $mime = $file->getMimeType();
+        if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return ['error' => 'Format gambar tidak didukung. Gunakan JPG/PNG/WEBP.'];
+        }
+
+        $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'banners';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0775, true);
+        }
+
+        $newName = $file->getRandomName();
+        $file->move($targetDir, $newName, true);
+
+        return ['path' => 'uploads/banners/' . $newName];
     }
 
     private function activeBanners(): array
