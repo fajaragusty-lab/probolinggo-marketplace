@@ -40,12 +40,14 @@
                     <h2 class="h6 mb-2">Pengiriman & Pembayaran</h2>
                     <div class="mb-2">
                         <label class="form-label small bm-muted">Metode Pengiriman</label>
-                        <select class="form-select" disabled><option>Kurir BersolekMart (Ongkir tetap)</option></select>
+                        <select class="form-select" name="shipping_method">
+                            <option value="bersolek_courier">Kurir BersolekMart (Ongkir tetap)</option>
+                        </select>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small bm-muted">Metode Pembayaran</label>
-                        <select class="form-select" disabled>
-                            <?php foreach (($paymentMethods ?? []) as $m): ?><option><?= esc($m['method_name']) ?></option><?php endforeach; ?>
+                        <select class="form-select" name="payment_method" required>
+                            <?php foreach (($paymentMethods ?? []) as $m): ?><option value="<?= esc($m['method_code']) ?>"><?= esc($m['method_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
                     <div>

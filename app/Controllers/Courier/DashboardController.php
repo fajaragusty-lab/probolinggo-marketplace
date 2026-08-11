@@ -151,7 +151,8 @@ class DashboardController extends BaseController
         }
 
         $otp = trim((string) $this->request->getPost('otp_code'));
-        if ($otp === '' || $otp !== (string) $shipment['otp_code']) {
+        $expectedOtp = (string) ($shipment['otp_code'] ?? '');
+        if ($otp === '' || $expectedOtp === '' || !hash_equals($expectedOtp, $otp)) {
             return redirect()->to('/courier/dashboard')->with('error', 'OTP tidak valid');
         }
 

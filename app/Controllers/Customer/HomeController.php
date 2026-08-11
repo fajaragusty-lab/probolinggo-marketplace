@@ -56,7 +56,8 @@ class HomeController extends BaseController
             ->where('p.status', 'ACTIVE')
             ->where('s.status', 'ACTIVE')
             ->countAllResults();
-        $recommendedOffset = $activeProductCount > 8 ? ((int) date('z') % ($activeProductCount - 8)) : 0;
+        $maxOffset = max(0, $activeProductCount - 8);
+        $recommendedOffset = $maxOffset > 0 ? ((int) date('z') % ($maxOffset + 1)) : 0;
         $recommended = $db->table('products p')
             ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
             ->join('stores s', 's.id = p.store_id')

@@ -1,10 +1,15 @@
 <?php
 $settings = $settings ?? null;
 if (!is_array($settings)) {
-    $settings = (new \App\Services\MarketplaceSettingsService())->all([
-        'app_name' => 'BersolekMart',
-        'app_tagline' => 'Marketplace UMKM Probolinggo',
-    ]);
+    $cacheKey = 'marketplace_settings_layout';
+    $settings = cache($cacheKey);
+    if (!is_array($settings)) {
+        $settings = (new \App\Services\MarketplaceSettingsService())->all([
+            'app_name' => 'BersolekMart',
+            'app_tagline' => 'Marketplace UMKM Probolinggo',
+        ]);
+        cache()->save($cacheKey, $settings, 300);
+    }
 }
 $brandName = $settings['app_name'] ?? 'BersolekMart';
 $brandTagline = $settings['app_tagline'] ?? 'Marketplace UMKM Probolinggo';
