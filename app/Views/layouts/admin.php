@@ -31,6 +31,7 @@ $menuGroups = [
         ['path' => 'admin/categories', 'label' => 'Categories Display', 'icon' => 'bi-layout-three-columns'],
     ],
     'System' => [
+        ['path' => 'admin/payment-methods', 'label' => 'Payment Methods', 'icon' => 'bi-credit-card-2-front'],
         ['path' => 'admin/settings', 'label' => 'Settings', 'icon' => 'bi-gear'],
         ['path' => 'admin/users', 'label' => 'Users / Admins', 'icon' => 'bi-person-badge'],
         ['path' => 'admin/audit-log', 'label' => 'Audit Log', 'icon' => 'bi-journal-text'],

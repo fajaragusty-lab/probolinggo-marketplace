@@ -48,10 +48,16 @@ $routes->group('admin', ['filter' => 'auth:super_admin,government_admin'], stati
     $routes->get('reports', 'Admin\ReportsController::index');
     $routes->get('orders', 'Admin\OperationsController::orders');
     $routes->get('products', 'Admin\OperationsController::products');
-    $routes->get('categories', 'Admin\OperationsController::categories');
+    $routes->get('categories', 'Admin\MasterDataController::categories');
+    $routes->post('categories', 'Admin\MasterDataController::saveCategory');
+    $routes->post('categories/(:num)/toggle', 'Admin\MasterDataController::toggleCategory/$1');
+    $routes->post('categories/(:num)/delete', 'Admin\MasterDataController::deleteCategory/$1');
     $routes->get('umkm', 'Admin\OperationsController::stores');
     $routes->get('couriers', 'Admin\OperationsController::couriers');
-    $routes->get('customers', 'Admin\OperationsController::customers');
+    $routes->get('customers', 'Admin\MasterDataController::customers');
+    $routes->post('customers', 'Admin\MasterDataController::saveCustomer');
+    $routes->post('customers/(:num)/toggle', 'Admin\MasterDataController::toggleCustomer/$1');
+    $routes->post('customers/(:num)/delete', 'Admin\MasterDataController::deleteCustomer/$1');
 
     $routes->get('homepage', 'Admin\CmsController::homepage');
     $routes->post('homepage', 'Admin\CmsController::saveHomepage');
@@ -66,6 +72,10 @@ $routes->group('admin', ['filter' => 'auth:super_admin,government_admin'], stati
     $routes->post('featured-stores', 'Admin\CmsController::saveFeaturedStores');
     $routes->get('settings', 'Admin\CmsController::settings');
     $routes->post('settings', 'Admin\CmsController::saveSettings');
+    $routes->get('payment-methods', 'Admin\MasterDataController::paymentMethods');
+    $routes->post('payment-methods', 'Admin\MasterDataController::savePaymentMethod');
+    $routes->post('payment-methods/(:num)/toggle', 'Admin\MasterDataController::togglePaymentMethod/$1');
+    $routes->post('payment-methods/(:num)/delete', 'Admin\MasterDataController::deletePaymentMethod/$1');
     $routes->get('users', 'Admin\OperationsController::users');
     $routes->get('audit-log', 'Admin\OperationsController::auditLog');
 });
