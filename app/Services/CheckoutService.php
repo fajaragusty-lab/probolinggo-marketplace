@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CartModel;
 use App\Models\ProductModel;
 use App\Services\MarketplaceSettingsService;
+use App\Services\ShipmentWorkflowService;
 
 class CheckoutService
 {
@@ -17,13 +18,18 @@ class CheckoutService
         $this->productModel = model(ProductModel::class);
     }
 
-    public function process(int $userId, int $addressId, ?string $notes = null, ?string $paymentMethodCode = null, ?string $shippingMethod = null): array
+    public function process(int $userId, int $addressId, ?string $notes = null, ?string $paymentMethodCode = null, ?string $shippingMethod = null, ?string $checkoutToken = null): array
     {
         $db = \Config\Database::connect();
         $settings = (new MarketplaceSettingsService())->all([
             'marketplace_shipping_base_fee' => '10000',
             'marketplace_minimum_order' => '0',
+            'checkout_cod' => '1',
         ]);
+        $checkoutToken = trim((string) $checkoutToken);
+        if ($checkoutToken === '') {
+            return ['success' => false, 'message' => 'Token checkout tidak valid'];
+        }
 
         $address = $db->table('addresses')
             ->where(['id' => $addressId, 'user_id' => $userId])
@@ -43,11 +49,24 @@ class CheckoutService
         }
 
         $paymentMethodCode = trim((string) $paymentMethodCode);
-        $paymentMethod = $db->table('payment_methods')
-            ->where('method_code', $paymentMethodCode)
-            ->where('is_active', 1)
-            ->get()
-            ->getRowArray();
+        $paymentMethod = null;
+        if ($paymentMethodCode === 'cod') {
+            if (($settings['checkout_cod'] ?? '0') !== '1') {
+                return ['success' => false, 'message' => 'Metode pembayaran tidak tersedia'];
+            }
+            $paymentMethod = [
+                'provider' => 'bersolekmart',
+                'method_code' => 'cod',
+                'method_name' => 'Cash on Delivery (COD)',
+                'config_json' => json_encode(['instruction' => 'Bayar saat pesanan diterima di lokasi tujuan.']),
+            ];
+        } else {
+            $paymentMethod = $db->table('payment_methods')
+                ->where('method_code', $paymentMethodCode)
+                ->where('is_active', 1)
+                ->get()
+                ->getRowArray();
+        }
         if (!$paymentMethod) {
             return ['success' => false, 'message' => 'Metode pembayaran tidak tersedia'];
         }
@@ -55,6 +74,21 @@ class CheckoutService
         $db->transStart();
 
         try {
+            $existingOrder = $db->table('orders')
+                ->where('customer_id', $userId)
+                ->where('checkout_token', $checkoutToken)
+                ->get()
+                ->getRowArray();
+            if ($existingOrder) {
+                return [
+                    'success' => true,
+                    'message' => 'Pesanan sebelumnya ditemukan',
+                    'order_id' => (int) $existingOrder['id'],
+                    'order_number' => $existingOrder['order_number'],
+                    'total' => (int) $existingOrder['total'],
+                ];
+            }
+
             foreach ($cartData['items'] as $item) {
                 $locked = $db->query(
                     'SELECT id, stock, status, price, name, store_id, weight FROM products WHERE id = ? FOR UPDATE',
@@ -82,12 +116,15 @@ class CheckoutService
                 'order_number' => $orderNumber,
                 'customer_id'  => $userId,
                 'address_id'   => $addressId,
-                'status'       => 'PENDING_PAYMENT',
+                'checkout_token' => $checkoutToken,
+                'status'       => $paymentMethodCode === 'cod' ? 'COD_CONFIRMED' : 'PENDING_PAYMENT',
+                'payment_method_code' => $paymentMethod['method_code'],
                 'subtotal'     => $subtotal,
                 'shipping_fee' => $shippingFee,
                 'discount'     => 0,
                 'total'        => $total,
                 'notes'        => $notes,
+                'paid_at'      => $paymentMethodCode === 'cod' ? date('Y-m-d H:i:s') : null,
                 'created_at'   => date('Y-m-d H:i:s'),
                 'updated_at'   => date('Y-m-d H:i:s'),
             ]);
@@ -120,7 +157,8 @@ class CheckoutService
                 'payment_number' => $paymentNumber,
                 'provider'       => $paymentMethod['provider'] ?: 'development',
                 'amount'         => $total,
-                'status'         => 'PENDING',
+                'status'         => $paymentMethodCode === 'cod' ? 'PAID' : 'PENDING',
+                'paid_at'        => $paymentMethodCode === 'cod' ? date('Y-m-d H:i:s') : null,
                 'metadata'       => json_encode([
                     'method_code' => $paymentMethod['method_code'],
                     'method_name' => $paymentMethod['method_name'],
@@ -148,6 +186,8 @@ class CheckoutService
                     'delivery_fee'     => $shippingFee,
                     'pickup_address'   => $s ? ($s['address'] . ', ' . $s['district']) : null,
                     'delivery_address' => $deliveryAddr,
+                    'delivery_latitude' => $address['latitude'] ?? null,
+                    'delivery_longitude' => $address['longitude'] ?? null,
                     'otp_code'         => (string) random_int(100000, 999999),
                     'created_at'       => date('Y-m-d H:i:s'),
                     'updated_at'       => date('Y-m-d H:i:s'),
@@ -155,6 +195,7 @@ class CheckoutService
             }
 
             $this->cartService->clear($userId);
+            (new ShipmentWorkflowService())->syncOrderStatus($orderId);
 
             $db->transComplete();
 

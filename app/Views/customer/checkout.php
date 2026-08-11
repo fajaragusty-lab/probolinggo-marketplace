@@ -8,6 +8,7 @@
     <?php else: ?>
     <form action="<?= site_url('checkout') ?>" method="post">
         <?= csrf_field() ?>
+        <input type="hidden" name="checkout_token" value="<?= esc($checkoutToken ?? '') ?>">
         <div class="row g-3">
             <div class="col-lg-8">
                 <div class="bm-card p-3 mb-3">
@@ -18,6 +19,7 @@
                             <div>
                                 <div class="fw-semibold small"><?= esc($a['label']) ?> — <?= esc($a['recipient_name']) ?></div>
                                 <div class="small bm-muted"><?= esc($a['address']) ?>, <?= esc($a['district']) ?>, <?= esc($a['city']) ?> <?= esc($a['postal_code'] ?? '') ?></div>
+                                <?php if (!empty($a['latitude']) && !empty($a['longitude'])): ?><div class="small text-success">GPS tersimpan untuk alamat ini</div><?php endif; ?>
                             </div>
                         </label>
                     <?php endforeach; ?>
@@ -50,6 +52,9 @@
                             <?php foreach (($paymentMethods ?? []) as $m): ?><option value="<?= esc($m['method_code']) ?>"><?= esc($m['method_name']) ?></option><?php endforeach; ?>
                         </select>
                     </div>
+                    <?php if (($settings['checkout_cod'] ?? '0') === '1'): ?>
+                        <div class="alert alert-light border small mb-2">COD aktif. Pesanan COD langsung diteruskan ke UMKM dan kurir, tetapi pembayaran dicatat lunas saat pesanan selesai diantar.</div>
+                    <?php endif; ?>
                     <div>
                         <label class="form-label small bm-muted">Catatan Pesanan</label>
                         <textarea name="notes" class="form-control" rows="2" placeholder="Contoh: antar sore hari"></textarea>

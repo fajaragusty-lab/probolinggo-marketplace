@@ -26,6 +26,10 @@ class CartService
         if (!$product || $product['status'] !== 'ACTIVE') {
             return ['success' => false, 'message' => 'Produk tidak tersedia'];
         }
+        $store = \Config\Database::connect()->table('stores')->select('status')->where('id', (int) $product['store_id'])->get()->getRowArray();
+        if (!$store || $store['status'] !== 'ACTIVE') {
+            return ['success' => false, 'message' => 'Toko sedang tidak melayani pesanan'];
+        }
         if ((int) $product['stock'] < $quantity) {
             return ['success' => false, 'message' => 'Stok tidak mencukupi'];
         }
@@ -85,7 +89,10 @@ class CartService
         }
 
         $product = $this->productModel->find($item['product_id']);
-        if (!$product || (int) $product['stock'] < $quantity) {
+        if (!$product || $product['status'] !== 'ACTIVE') {
+            return ['success' => false, 'message' => 'Produk tidak lagi tersedia'];
+        }
+        if ((int) $product['stock'] < $quantity) {
             return ['success' => false, 'message' => 'Stok tidak mencukupi'];
         }
 

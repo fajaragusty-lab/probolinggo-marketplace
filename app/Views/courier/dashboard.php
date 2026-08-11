@@ -34,23 +34,41 @@
     <h2 class="h6">Active Delivery</h2>
     <?php if(empty($active)): ?><div class="bm-empty py-3">Tidak ada delivery aktif.</div><?php endif; ?>
     <?php foreach($active as $a): ?>
-        <div class="border rounded p-2 mb-2">
+        <div class="border rounded p-2 mb-2" data-shipment-tracker data-track-url="<?= esc(site_url('courier/shipments/' . (int) $a['id'] . '/track')) ?>">
             <div class="d-flex justify-content-between"><strong><?= esc($a['shipment_number']) ?></strong><span class="bm-status <?= bm_status_class($a['status']) ?>"><?= esc($a['status']) ?></span></div>
             <div class="small bm-muted mb-2">Pickup: <?= esc($a['pickup_address'] ?? '-') ?><br>Drop: <?= esc($a['delivery_address'] ?? '-') ?></div>
             <div class="d-flex gap-2 flex-wrap">
-                <?php if ($a['status'] === 'ASSIGNED'): ?>
+                <?php if ($a['status'] === 'ACCEPTED'): ?>
+                    <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/arrive-pickup') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-outline-primary">Arrive Pickup</button></form>
+                <?php endif; ?>
+                <?php if ($a['status'] === 'ARRIVED_PICKUP'): ?>
                     <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/pickup') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-outline-primary">Pickup</button></form>
                 <?php endif; ?>
                 <?php if ($a['status'] === 'PICKED_UP'): ?>
                     <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/delivery') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-outline-primary">Start Delivery</button></form>
                 <?php endif; ?>
+                <?php if ($a['status'] === 'ON_DELIVERY'): ?>
+                    <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/arrive-destination') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-outline-primary">Arrive Destination</button></form>
+                <?php endif; ?>
             </div>
-            <?php if ($a['status'] === 'ON_DELIVERY'): ?>
-                <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/complete') ?>" enctype="multipart/form-data" class="mt-2 row g-2">
+            <?php if ($a['status'] === 'ARRIVED_DESTINATION'): ?>
+                <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/verify-otp') ?>" class="mt-2 row g-2">
                     <?= csrf_field() ?>
-                    <div class="col-md-4"><input class="form-control form-control-sm" name="otp_code" placeholder="OTP penerima" required></div>
-                    <div class="col-md-5"><input type="file" class="form-control form-control-sm" name="proof_image" accept="image/*" required></div>
-                    <div class="col-md-3"><button class="btn btn-sm bm-btn-primary w-100">Complete</button></div>
+                    <div class="col-md-9"><input class="form-control form-control-sm" name="otp_code" placeholder="OTP penerima" required></div>
+                    <div class="col-md-3"><button class="btn btn-sm bm-btn-primary w-100">Verify OTP</button></div>
+                </form>
+            <?php endif; ?>
+            <?php if ($a['status'] === 'OTP_VERIFIED'): ?>
+                <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/proof') ?>" enctype="multipart/form-data" class="mt-2 row g-2">
+                    <?= csrf_field() ?>
+                    <div class="col-md-9"><input type="file" class="form-control form-control-sm" name="proof_image" accept="image/*" required></div>
+                    <div class="col-md-3"><button class="btn btn-sm bm-btn-primary w-100">Upload Proof</button></div>
+                </form>
+            <?php endif; ?>
+            <?php if ($a['status'] === 'PROOF_UPLOADED'): ?>
+                <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/complete') ?>" class="mt-2">
+                    <?= csrf_field() ?>
+                    <button class="btn btn-sm bm-btn-primary">Complete Delivery</button>
                 </form>
             <?php endif; ?>
         </div>

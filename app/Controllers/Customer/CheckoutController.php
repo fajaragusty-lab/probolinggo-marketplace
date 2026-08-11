@@ -24,11 +24,20 @@ class CheckoutController extends BaseController
             ->get()->getResultArray();
         $settings = (new MarketplaceSettingsService())->all([
             'marketplace_shipping_base_fee' => '10000',
-            'checkout_payment_methods' => 'bank_transfer,qris',
+            'checkout_payment_methods' => 'bank_transfer,qris,cod',
+            'checkout_cod' => '1',
         ]);
         $allowedMethods = array_filter(array_map('trim', explode(',', (string) ($settings['checkout_payment_methods'] ?? ''))));
         if (!empty($allowedMethods)) {
             $paymentMethods = array_values(array_filter($paymentMethods, static fn (array $method) => in_array($method['method_code'], $allowedMethods, true)));
+        }
+        if (($settings['checkout_cod'] ?? '0') === '1' && !array_filter($paymentMethods, static fn (array $method) => $method['method_code'] === 'cod')) {
+            $paymentMethods[] = [
+                'method_code' => 'cod',
+                'method_name' => 'Cash on Delivery (COD)',
+                'provider' => 'bersolekmart',
+                'config_json' => json_encode(['instruction' => 'Bayar tunai saat pesanan diterima.']),
+            ];
         }
         $groupedByStore = [];
         foreach ($cartData['items'] as $item) {
@@ -43,6 +52,8 @@ class CheckoutController extends BaseController
             'total' => $cartData['subtotal'] + $shippingFee,
             'addresses' => $addresses,
             'paymentMethods' => $paymentMethods,
+            'checkoutToken' => bin2hex(random_bytes(16)),
+            'settings' => $settings,
         ]);
     }
 
@@ -58,7 +69,8 @@ class CheckoutController extends BaseController
             $addressId,
             (string) $this->request->getPost('notes'),
             (string) $this->request->getPost('payment_method'),
-            (string) $this->request->getPost('shipping_method')
+            (string) $this->request->getPost('shipping_method'),
+            (string) $this->request->getPost('checkout_token')
         );
         if ($result['success']) {
             return redirect()->to('/orders/' . $result['order_id'])

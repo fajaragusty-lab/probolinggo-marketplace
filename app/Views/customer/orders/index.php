@@ -15,6 +15,7 @@
                     <span class="bm-status <?= bm_status_class($o['status']) ?>"><?= esc($o['status']) ?></span>
                 </div>
                 <div class="bm-price mt-2"><?= bm_currency((int)$o['total']) ?></div>
+                <div class="small text-primary mt-2">Lihat detail & tracking</div>
             </a>
         <?php endforeach; ?>
     <?php endif; ?>

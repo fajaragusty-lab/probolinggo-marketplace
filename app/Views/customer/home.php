@@ -58,6 +58,9 @@
     <?php foreach (($homepageSections ?? []) as $section): ?>
         <?php if (empty($section['enabled'])) {
             continue;
+        }
+        if (empty($section['items'])) {
+            continue;
         } ?>
         <section class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -65,12 +68,7 @@
                 <a href="<?= site_url($section['type'] === 'stores' ? 'search' : 'search') ?>" class="small text-primary text-decoration-none">Lihat semua</a>
             </div>
 
-            <?php if (empty($section['items'])): ?>
-                <div class="bm-empty">
-                    <h2 class="h6 mb-1">Belum ada konten untuk section ini</h2>
-                    <p class="small bm-muted mb-0">Atur banner, produk unggulan, atau toko unggulan dari halaman CMS admin.</p>
-                </div>
-            <?php elseif (($section['type'] ?? 'products') === 'stores'): ?>
+            <?php if (($section['type'] ?? 'products') === 'stores'): ?>
                 <div class="row g-3">
                     <?php foreach ($section['items'] as $store): ?>
                         <div class="col-12 col-md-6 col-lg-4"><?= view('components/store_card', ['store' => $store]) ?></div>

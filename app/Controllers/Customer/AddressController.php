@@ -46,6 +46,9 @@ class AddressController extends BaseController
             'district' => $this->request->getPost('district'),
             'city' => $this->request->getPost('city') ?: 'Probolinggo',
             'postal_code' => $this->request->getPost('postal_code'),
+            'latitude' => $this->normalizeCoordinate($this->request->getPost('latitude')),
+            'longitude' => $this->normalizeCoordinate($this->request->getPost('longitude')),
+            'location_recorded_at' => $this->normalizeRecordedAt((string) $this->request->getPost('location_recorded_at')),
             'is_default' => $isDefault,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
@@ -83,6 +86,9 @@ class AddressController extends BaseController
             'district' => $this->request->getPost('district'),
             'city' => $this->request->getPost('city') ?: 'Probolinggo',
             'postal_code' => $this->request->getPost('postal_code'),
+            'latitude' => $this->normalizeCoordinate($this->request->getPost('latitude')),
+            'longitude' => $this->normalizeCoordinate($this->request->getPost('longitude')),
+            'location_recorded_at' => $this->normalizeRecordedAt((string) $this->request->getPost('location_recorded_at')),
             'is_default' => $isDefault,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
@@ -94,5 +100,28 @@ class AddressController extends BaseController
         \Config\Database::connect()->table('addresses')
             ->where(['id' => $id, 'user_id' => (int) session()->get('user_id')])->delete();
         return redirect()->to('/addresses')->with('success', 'Alamat dihapus');
+    }
+
+    private function normalizeCoordinate($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return round((float) $value, 7);
+    }
+
+    private function normalizeRecordedAt(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return (new \DateTime($value))->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

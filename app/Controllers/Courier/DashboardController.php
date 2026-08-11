@@ -3,6 +3,7 @@
 namespace App\Controllers\Courier;
 
 use App\Controllers\BaseController;
+use App\Services\ShipmentWorkflowService;
 
 class DashboardController extends BaseController
 {
@@ -32,7 +33,7 @@ class DashboardController extends BaseController
 
         $active = $db->table('shipments')
             ->where('courier_id', $courier['id'])
-            ->whereIn('status', ['ASSIGNED', 'PICKED_UP', 'ON_DELIVERY'])
+            ->whereIn('status', ['ACCEPTED', 'ARRIVED_PICKUP', 'PICKED_UP', 'ON_DELIVERY', 'ARRIVED_DESTINATION', 'OTP_VERIFIED', 'PROOF_UPLOADED'])
             ->orderBy('updated_at', 'DESC')
             ->get()->getResultArray();
 
@@ -89,11 +90,16 @@ class DashboardController extends BaseController
             }
 
             $db->table('shipments')->where('id', $shipmentId)->update([
-                'status' => 'ASSIGNED',
+                'status' => 'ACCEPTED',
                 'courier_id' => $courier['id'],
                 'assigned_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
+            $db->table('couriers')->where('id', $courier['id'])->update([
+                'status' => 'ASSIGNED',
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+            (new ShipmentWorkflowService())->syncOrderStatus((int) $shipment['order_id']);
 
             if ($db->transStatus() === false) {
                 $db->transRollback();
@@ -131,12 +137,91 @@ class DashboardController extends BaseController
 
     public function pickup(int $shipmentId)
     {
-        return $this->changeShipmentStatus($shipmentId, 'ASSIGNED', 'PICKED_UP', ['picked_up_at' => date('Y-m-d H:i:s')], 'Pickup berhasil diproses');
+        return $this->changeShipmentStatus($shipmentId, 'ARRIVED_PICKUP', 'PICKED_UP', ['picked_up_at' => date('Y-m-d H:i:s')], 'Pickup berhasil diproses', 'PICKUP');
     }
 
     public function onDelivery(int $shipmentId)
     {
-        return $this->changeShipmentStatus($shipmentId, 'PICKED_UP', 'ON_DELIVERY', [], 'Status pengiriman diperbarui');
+        return $this->changeShipmentStatus($shipmentId, 'PICKED_UP', 'ON_DELIVERY', ['on_delivery_at' => date('Y-m-d H:i:s')], 'Status pengiriman diperbarui', 'ON_DELIVERY');
+    }
+
+    public function arrivePickup(int $shipmentId)
+    {
+        return $this->changeShipmentStatus($shipmentId, 'ACCEPTED', 'ARRIVED_PICKUP', ['arrived_pickup_at' => date('Y-m-d H:i:s')], 'Kurir tiba di titik pickup', 'PICKUP');
+    }
+
+    public function arriveDestination(int $shipmentId)
+    {
+        return $this->changeShipmentStatus($shipmentId, 'ON_DELIVERY', 'ARRIVED_DESTINATION', ['arrived_destination_at' => date('Y-m-d H:i:s')], 'Kurir tiba di alamat tujuan', 'ON_DELIVERY');
+    }
+
+    public function verifyOtp(int $shipmentId)
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
+        }
+
+        $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
+        if (!$shipment || $shipment['status'] !== 'ARRIVED_DESTINATION') {
+            return redirect()->to('/courier/dashboard')->with('error', 'Shipment tidak valid untuk verifikasi OTP');
+        }
+
+        $otp = trim((string) $this->request->getPost('otp_code'));
+        $expectedOtp = (string) ($shipment['otp_code'] ?? '');
+        if ($otp === '' || $expectedOtp === '' || !hash_equals($expectedOtp, $otp)) {
+            return redirect()->to('/courier/dashboard')->with('error', 'OTP tidak valid');
+        }
+
+        $db->table('shipments')->where('id', $shipmentId)->update([
+            'status' => 'OTP_VERIFIED',
+            'otp_verified_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        (new ShipmentWorkflowService())->syncOrderStatus((int) $shipment['order_id']);
+
+        return redirect()->to('/courier/dashboard')->with('success', 'OTP berhasil diverifikasi');
+    }
+
+    public function uploadProof(int $shipmentId)
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
+        }
+
+        $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
+        if (!$shipment || $shipment['status'] !== 'OTP_VERIFIED') {
+            return redirect()->to('/courier/dashboard')->with('error', 'Upload bukti belum dapat dilakukan');
+        }
+
+        $proof = $this->request->getFile('proof_image');
+        if (!$proof || !$proof->isValid() || $proof->getError() === UPLOAD_ERR_NO_FILE) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Bukti kirim wajib diunggah');
+        }
+        if (!in_array($proof->getMimeType(), ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Bukti kirim harus gambar');
+        }
+
+        $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'shipments';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0775, true);
+        }
+
+        $proofName = $proof->getRandomName();
+        $proof->move($targetDir, $proofName, true);
+
+        $db->table('shipments')->where('id', $shipmentId)->update([
+            'status' => 'PROOF_UPLOADED',
+            'proof_image' => 'uploads/shipments/' . $proofName,
+            'proof_uploaded_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        (new ShipmentWorkflowService())->syncOrderStatus((int) $shipment['order_id']);
+
+        return redirect()->to('/courier/dashboard')->with('success', 'Bukti pengiriman diunggah');
     }
 
     public function complete(int $shipmentId)
@@ -148,59 +233,51 @@ class DashboardController extends BaseController
         }
 
         $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
-        if (!$shipment || $shipment['status'] !== 'ON_DELIVERY') {
+        if (!$shipment || $shipment['status'] !== 'PROOF_UPLOADED') {
             return redirect()->to('/courier/dashboard')->with('error', 'Shipment tidak valid untuk diselesaikan');
-        }
-
-        $otp = trim((string) $this->request->getPost('otp_code'));
-        $expectedOtp = (string) ($shipment['otp_code'] ?? '');
-        if ($otp === '' || $expectedOtp === '' || !hash_equals($expectedOtp, $otp)) {
-            return redirect()->to('/courier/dashboard')->with('error', 'OTP tidak valid');
-        }
-
-        $proofPath = $shipment['proof_image'] ?? null;
-        $proof = $this->request->getFile('proof_image');
-        if ($proof && $proof->isValid() && $proof->getError() !== UPLOAD_ERR_NO_FILE) {
-            if (!in_array($proof->getMimeType(), ['image/jpeg', 'image/png', 'image/webp'], true)) {
-                return redirect()->to('/courier/dashboard')->with('error', 'Bukti kirim harus gambar');
-            }
-
-            $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'shipments';
-            if (!is_dir($targetDir)) {
-                mkdir($targetDir, 0775, true);
-            }
-
-            $proofName = $proof->getRandomName();
-            $proof->move($targetDir, $proofName, true);
-            $proofPath = 'uploads/shipments/' . $proofName;
         }
 
         $earning = (int) ($shipment['courier_earning'] ?: floor(((int) $shipment['delivery_fee']) * self::DEFAULT_COURIER_EARNING_RATIO));
 
         $db->table('shipments')->where('id', $shipmentId)->update([
             'status' => 'DELIVERED',
-            'otp_verified_at' => date('Y-m-d H:i:s'),
-            'proof_image' => $proofPath,
             'delivered_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
             'courier_earning' => $earning,
         ]);
-
-        $db->table('orders')->where('id', (int) $shipment['order_id'])->update([
-            'status' => 'COMPLETED',
-            'completed_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        (new ShipmentWorkflowService())->syncOrderStatus((int) $shipment['order_id']);
 
         $db->table('couriers')->where('id', $courier['id'])
             ->set('total_deliveries', 'total_deliveries + 1', false)
             ->set('total_earnings', 'total_earnings + ' . $earning, false)
+            ->set('status', "'AVAILABLE'", false)
             ->update();
 
         return redirect()->to('/courier/dashboard')->with('success', 'Pengantaran selesai');
     }
 
-    private function changeShipmentStatus(int $shipmentId, string $expected, string $next, array $extra, string $message)
+    public function track(int $shipmentId)
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Courier tidak ditemukan']);
+        }
+
+        $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
+        if (!$shipment) {
+            return $this->response->setStatusCode(404)->setJSON(['success' => false, 'message' => 'Shipment tidak ditemukan']);
+        }
+
+        $latitude = (float) $this->request->getPost('latitude');
+        $longitude = (float) $this->request->getPost('longitude');
+        $accuracy = $this->request->getPost('accuracy');
+        (new ShipmentWorkflowService())->recordTracking($shipmentId, (int) $courier['id'], $latitude, $longitude, $accuracy !== null && $accuracy !== '' ? (float) $accuracy : null);
+
+        return $this->response->setJSON(['success' => true, 'message' => 'Lokasi tersimpan']);
+    }
+
+    private function changeShipmentStatus(int $shipmentId, string $expected, string $next, array $extra, string $message, ?string $courierStatus = null)
     {
         $db = \Config\Database::connect();
         $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
@@ -215,6 +292,10 @@ class DashboardController extends BaseController
 
         $payload = array_merge($extra, ['status' => $next, 'updated_at' => date('Y-m-d H:i:s')]);
         $db->table('shipments')->where('id', $shipmentId)->update($payload);
+        if ($courierStatus) {
+            $db->table('couriers')->where('id', $courier['id'])->update(['status' => $courierStatus, 'updated_at' => date('Y-m-d H:i:s')]);
+        }
+        (new ShipmentWorkflowService())->syncOrderStatus((int) $shipment['order_id']);
 
         return redirect()->to('/courier/dashboard')->with('success', $message);
     }

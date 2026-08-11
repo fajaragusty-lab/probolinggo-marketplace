@@ -42,9 +42,9 @@ class AddOperationalWorkflowFields extends Migration
             $this->db->query("ALTER TABLE payments MODIFY status ENUM('PENDING','PAID','FAILED','CANCELLED','EXPIRED','REFUNDED') NOT NULL DEFAULT 'PENDING'");
         }
 
-        $this->db->query('CREATE INDEX IF NOT EXISTS shipments_store_status_idx ON shipments (store_id, status)');
-        $this->db->query('CREATE INDEX IF NOT EXISTS shipment_tracking_shipment_recorded_idx ON shipment_tracking (shipment_id, recorded_at)');
-        $this->db->query('CREATE INDEX IF NOT EXISTS feedbacks_customer_status_idx ON feedbacks (customer_id, status)');
+        $this->db->query('CREATE INDEX shipments_store_status_idx ON shipments (store_id, status)');
+        $this->db->query('CREATE INDEX shipment_tracking_shipment_recorded_idx ON shipment_tracking (shipment_id, recorded_at)');
+        $this->db->query('CREATE INDEX feedbacks_customer_status_idx ON feedbacks (customer_id, status)');
     }
 
     public function down()

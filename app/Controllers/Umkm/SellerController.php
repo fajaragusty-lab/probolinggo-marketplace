@@ -3,6 +3,7 @@
 namespace App\Controllers\Umkm;
 
 use App\Controllers\BaseController;
+use App\Services\ShipmentWorkflowService;
 
 class SellerController extends BaseController
 {
@@ -226,7 +227,7 @@ class SellerController extends BaseController
             return redirect()->to('/')->with('error', 'Data UMKM tidak ditemukan');
         }
 
-        $allowed = ['PAID', 'PROCESSING', 'READY_FOR_PICKUP', 'COMPLETED'];
+        $allowed = ['PROCESSING', 'READY_FOR_PICKUP'];
         $status = (string) $this->request->getPost('status');
         if (!in_array($status, $allowed, true)) {
             return redirect()->to('/umkm/orders')->with('error', 'Status tidak valid');
@@ -237,6 +238,11 @@ class SellerController extends BaseController
             return redirect()->to('/umkm/orders')->with('error', 'Pesanan tidak ditemukan');
         }
 
+        $order = $this->db->table('orders')->where('id', $orderId)->get()->getRowArray();
+        if (!$order || !in_array($order['status'], ['PAID', 'COD_CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'COURIER_ASSIGNED'], true)) {
+            return redirect()->to('/umkm/orders')->with('error', 'Pesanan tidak berada pada status yang bisa diproses');
+        }
+
         $this->db->table('orders')->where('id', $orderId)->update(['status' => $status, 'updated_at' => date('Y-m-d H:i:s')]);
         if ($status === 'READY_FOR_PICKUP') {
             $this->db->table('shipments')->where('order_id', $orderId)->where('status', 'PENDING')->update([
@@ -244,6 +250,7 @@ class SellerController extends BaseController
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
         }
+        (new ShipmentWorkflowService())->syncOrderStatus($orderId);
 
         return redirect()->to('/umkm/orders')->with('success', 'Status pesanan diperbarui');
     }

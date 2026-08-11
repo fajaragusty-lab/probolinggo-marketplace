@@ -43,6 +43,50 @@
   syncBannerPreviewText('#bannerSubtitleInput', '#bannerPreviewSubtitle', 'Deskripsi banner');
   syncBannerPreviewText('#bannerCtaInput', '#bannerPreviewCta', 'CTA');
 
+  q('[data-address-geolocate]')?.addEventListener('click', () => {
+    const latitude = q('#addressLatitude');
+    const longitude = q('#addressLongitude');
+    const recordedAt = q('#addressLocationRecordedAt');
+    const status = q('#addressLocationStatus');
+    if (!navigator.geolocation || !latitude || !longitude || !recordedAt) {
+      if (status) status.textContent = 'Perangkat tidak mendukung GPS browser.';
+      return;
+    }
+    if (status) status.textContent = 'Mengambil lokasi GPS...';
+    navigator.geolocation.getCurrentPosition((position) => {
+      latitude.value = position.coords.latitude.toFixed(7);
+      longitude.value = position.coords.longitude.toFixed(7);
+      recordedAt.value = new Date().toISOString();
+      if (status) status.textContent = `GPS tersimpan (${latitude.value}, ${longitude.value}).`;
+    }, () => {
+      if (status) status.textContent = 'Izin lokasi ditolak atau lokasi tidak tersedia.';
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+  });
+
+  qa('[data-shipment-tracker]').forEach((node) => {
+    const url = node.getAttribute('data-track-url');
+    if (!url || !navigator.geolocation) return;
+    const csrf = qa('input[type="hidden"]').find((input) => /csrf/i.test(input.name));
+    const sendPosition = () => {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const body = new URLSearchParams({
+          latitude: position.coords.latitude.toFixed(7),
+          longitude: position.coords.longitude.toFixed(7),
+          accuracy: `${position.coords.accuracy || ''}`,
+        });
+        if (csrf) body.append(csrf.name, csrf.value);
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
+          body: body.toString(),
+          credentials: 'same-origin',
+        }).catch(() => {});
+      }, () => {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 });
+    };
+    sendPosition();
+    window.setInterval(sendPosition, 30000);
+  });
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
