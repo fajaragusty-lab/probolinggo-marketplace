@@ -47,7 +47,7 @@ if (!function_exists('bm_status_class')) {
 
         return match ($status) {
             'ACTIVE', 'COMPLETED', 'DELIVERED', 'PAID', 'VERIFIED', 'ONLINE', 'AVAILABLE' => 'is-success',
-            'PENDING', 'PENDING_PAYMENT', 'PROCESSING', 'READY_FOR_PICKUP', 'ASSIGNED', 'PICKED_UP', 'ON_DELIVERY' => 'is-warning',
+            'PENDING', 'PENDING_PAYMENT', 'COD_CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'COURIER_ASSIGNED', 'ACCEPTED', 'ARRIVED_PICKUP', 'PICKED_UP', 'ON_DELIVERY', 'ARRIVED_DESTINATION', 'OTP_VERIFIED', 'PROOF_UPLOADED', 'ASSIGNED' => 'is-warning',
             'REJECTED', 'FAILED', 'CANCELLED', 'SUSPENDED', 'OFFLINE', 'INACTIVE' => 'is-danger',
             default => 'is-neutral',
         };
