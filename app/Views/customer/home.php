@@ -65,7 +65,7 @@
         <section class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3 class="bm-section-title mb-0"><?= esc($section['label']) ?></h3>
-                <a href="<?= site_url($section['type'] === 'stores' ? 'search' : 'search') ?>" class="small text-primary text-decoration-none">Lihat semua</a>
+                <a href="<?= site_url('search') ?>" class="small text-primary text-decoration-none">Lihat semua</a>
             </div>
 
             <?php if (($section['type'] ?? 'products') === 'stores'): ?>

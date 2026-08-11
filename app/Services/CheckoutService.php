@@ -71,23 +71,24 @@ class CheckoutService
             return ['success' => false, 'message' => 'Metode pembayaran tidak tersedia'];
         }
 
+        $existingOrder = $db->table('orders')
+            ->where('customer_id', $userId)
+            ->where('checkout_token', $checkoutToken)
+            ->get()
+            ->getRowArray();
+        if ($existingOrder) {
+            return [
+                'success' => true,
+                'message' => 'Pesanan sebelumnya ditemukan',
+                'order_id' => (int) $existingOrder['id'],
+                'order_number' => $existingOrder['order_number'],
+                'total' => (int) $existingOrder['total'],
+            ];
+        }
+
         $db->transStart();
 
         try {
-            $existingOrder = $db->table('orders')
-                ->where('customer_id', $userId)
-                ->where('checkout_token', $checkoutToken)
-                ->get()
-                ->getRowArray();
-            if ($existingOrder) {
-                return [
-                    'success' => true,
-                    'message' => 'Pesanan sebelumnya ditemukan',
-                    'order_id' => (int) $existingOrder['id'],
-                    'order_number' => $existingOrder['order_number'],
-                    'total' => (int) $existingOrder['total'],
-                ];
-            }
 
             foreach ($cartData['items'] as $item) {
                 $locked = $db->query(
