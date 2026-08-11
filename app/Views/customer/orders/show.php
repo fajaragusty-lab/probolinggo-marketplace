@@ -21,7 +21,16 @@
     </div>
 
     <?php if (!empty($payment)): ?>
-        <div class="bm-card p-3 mb-3 small"><strong>Pembayaran:</strong> <?= esc($payment['payment_number']) ?> · <span class="bm-status <?= bm_status_class($payment['status']) ?>"><?= esc($payment['status']) ?></span></div>
+        <div class="bm-card p-3 mb-3 small">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                <strong>Pembayaran <?= esc($payment['payment_number']) ?></strong>
+                <span class="bm-status <?= bm_status_class($payment['status']) ?>"><?= esc($payment['status']) ?></span>
+            </div>
+            <div class="bm-muted mb-1">Metode: <?= esc($payment['meta']['method_name'] ?? $payment['provider']) ?></div>
+            <?php if (!empty($payment['meta']['instructions']['instruction'])): ?>
+                <div class="alert alert-light border mb-0"><?= esc($payment['meta']['instructions']['instruction']) ?></div>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <div class="bm-card p-3">

@@ -1,84 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="utf-8">
-    <title><?= lang('Errors.pageNotFound') ?></title>
-
-    <style>
-        div.logo {
-            height: 200px;
-            width: 155px;
-            display: inline-block;
-            opacity: 0.08;
-            position: absolute;
-            top: 2rem;
-            left: 50%;
-            margin-left: -73px;
-        }
-        body {
-            height: 100%;
-            background: #fafafa;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            color: #777;
-            font-weight: 300;
-        }
-        h1 {
-            font-weight: lighter;
-            letter-spacing: normal;
-            font-size: 3rem;
-            margin-top: 0;
-            margin-bottom: 0;
-            color: #222;
-        }
-        .wrap {
-            max-width: 1024px;
-            margin: 5rem auto;
-            padding: 2rem;
-            background: #fff;
-            text-align: center;
-            border: 1px solid #efefef;
-            border-radius: 0.5rem;
-            position: relative;
-        }
-        pre {
-            white-space: normal;
-            margin-top: 1.5rem;
-        }
-        code {
-            background: #fafafa;
-            border: 1px solid #efefef;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            display: block;
-        }
-        p {
-            margin-top: 1.5rem;
-        }
-        .footer {
-            margin-top: 2rem;
-            border-top: 1px solid #efefef;
-            padding: 1em 2em 0 2em;
-            font-size: 85%;
-            color: #999;
-        }
-        a:active,
-        a:link,
-        a:visited {
-            color: #dd4814;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>404 — BersolekMart</title>
+    <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>">
 </head>
 <body>
-    <div class="wrap">
-        <h1>404</h1>
-
-        <p>
-            <?php if (ENVIRONMENT !== 'production') : ?>
-                <?= nl2br(esc($message)) ?>
-            <?php else : ?>
-                <?= lang('Errors.sorryCannotFind') ?>
-            <?php endif; ?>
-        </p>
+    <div class="bm-error-shell">
+        <div class="bm-error-card">
+            <div class="bm-error-code">404</div>
+            <h1 class="h3 mb-2">Halaman tidak ditemukan</h1>
+            <p class="bm-muted mb-4"><?= ENVIRONMENT !== 'production' ? nl2br(esc($message)) : 'Maaf, halaman yang Anda cari tidak tersedia atau sudah dipindahkan.' ?></p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+                <a href="<?= site_url('/') ?>" class="btn bm-btn-primary">Kembali ke beranda</a>
+                <a href="<?= site_url('search') ?>" class="btn btn-outline-secondary">Cari produk</a>
+            </div>
+        </div>
     </div>
 </body>
 </html>

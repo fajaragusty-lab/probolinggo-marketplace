@@ -20,12 +20,43 @@ class CmsController extends BaseAdminController
     {
         $guard = $this->guard();
         if ($guard) { return $guard; }
+        $settings = (new MarketplaceSettingsService())->all();
+
         return view('admin/cms/homepage', [
             'title' => 'Homepage CMS',
             'banners' => $this->activeBanners(),
             'featuredProducts' => $this->getFeaturedProductsData(),
             'featuredStores' => $this->getFeaturedStoresData(),
+            'sections' => $this->homepageSections($settings),
         ]);
+    }
+
+    public function saveHomepage()
+    {
+        $guard = $this->guard();
+        if ($guard) { return $guard; }
+
+        $service = new MarketplaceSettingsService();
+        $sectionKeys = $this->request->getPost('section_key') ?? [];
+        $sectionLabels = $this->request->getPost('section_label') ?? [];
+        $sectionSorts = $this->request->getPost('section_sort') ?? [];
+        $sectionEnabled = $this->request->getPost('section_enabled') ?? [];
+
+        $sections = [];
+        foreach ($sectionKeys as $index => $key) {
+            $sections[] = [
+                'key' => (string) $key,
+                'label' => trim((string) ($sectionLabels[$index] ?? '')),
+                'sort_order' => (int) ($sectionSorts[$index] ?? $index + 1),
+                'enabled' => in_array((string) $key, is_array($sectionEnabled) ? $sectionEnabled : [], true),
+            ];
+        }
+
+        usort($sections, static fn (array $left, array $right) => $left['sort_order'] <=> $right['sort_order']);
+        $service->set('homepage_sections_json', json_encode($sections));
+        $this->audit->log('homepage_sections_updated', 'homepage', null, ['total' => count($sections)]);
+
+        return redirect()->to('/admin/homepage')->with('success', 'Homepage sections updated');
     }
 
     public function banners()
@@ -81,8 +112,8 @@ class CmsController extends BaseAdminController
         $data = [
             'title' => $this->request->getPost('title'),
             'subtitle' => $this->request->getPost('subtitle'),
-            'image' => $desktopImage['path'] ?? ($existing['image'] ?? null),
-            'mobile_image' => $mobileImage['path'] ?? ($existing['mobile_image'] ?? null),
+            'image' => $this->request->getPost('remove_image') ? null : ($desktopImage['path'] ?? ($existing['image'] ?? null)),
+            'mobile_image' => $this->request->getPost('remove_mobile_image') ? null : ($mobileImage['path'] ?? ($existing['mobile_image'] ?? null)),
             'cta_label' => $this->request->getPost('cta_label') ?: null,
             'cta_url' => $ctaUrl !== '' ? $ctaUrl : null,
             'sort_order' => (int) ($this->request->getPost('sort_order') ?: 0),
@@ -283,15 +314,7 @@ class CmsController extends BaseAdminController
         $service = new MarketplaceSettingsService();
         return view('admin/cms/settings', [
             'title' => 'Marketplace Settings',
-            'settings' => $service->all([
-                'app_name' => 'BersolekMart',
-                'app_tagline' => 'Marketplace UMKM Kota Probolinggo',
-                'default_currency' => 'IDR',
-                'shipping_base_fee' => '10000',
-                'minimum_order' => '0',
-                'maintenance_mode' => '0',
-                'contact_email' => 'support@bersolekmart.test',
-            ]),
+            'settings' => $service->all($this->settingsDefaults()),
         ]);
     }
 
@@ -300,22 +323,29 @@ class CmsController extends BaseAdminController
         $guard = $this->guard();
         if ($guard) { return $guard; }
         $service = new MarketplaceSettingsService();
-        $keys = [
-            'app_name',
-            'app_tagline',
-            'default_currency',
-            'shipping_base_fee',
-            'minimum_order',
-            'maintenance_mode',
-            'contact_email',
-        ];
+        $keys = array_keys($this->settingsDefaults());
 
         foreach ($keys as $key) {
             $value = (string) ($this->request->getPost($key) ?? '');
             if ($key === 'maintenance_mode') {
                 $value = $value === '1' ? '1' : '0';
             }
+            if (in_array($key, ['marketplace_umkm_approval', 'marketplace_product_approval', 'marketplace_review_moderation', 'checkout_cod', 'system_cache_enabled'], true)) {
+                $value = $value === '1' ? '1' : '0';
+            }
             $service->set($key, $value);
+        }
+
+        foreach ([
+            'general_logo' => 'logo_file',
+            'general_favicon' => 'favicon_file',
+            'seo_og_image' => 'og_image_file',
+        ] as $settingKey => $field) {
+            $uploaded = $this->uploadSettingFile($field, $service->get($settingKey));
+            if (isset($uploaded['error'])) {
+                return redirect()->back()->withInput()->with('error', $uploaded['error']);
+            }
+            $service->set($settingKey, $uploaded['path'] ?? $service->get($settingKey));
         }
 
         $this->audit->log('marketplace_settings_updated', 'marketplace_settings', null, ['keys' => $keys]);
@@ -374,6 +404,106 @@ class CmsController extends BaseAdminController
             ->groupEnd()
             ->orderBy('sort_order', 'ASC')
             ->get()->getResultArray();
+    }
+
+    private function homepageSections(array $settings): array
+    {
+        $defaults = [
+            ['key' => 'featured', 'label' => 'Produk Unggulan', 'sort_order' => 1, 'enabled' => true],
+            ['key' => 'stores', 'label' => 'Toko Pilihan UMKM', 'sort_order' => 2, 'enabled' => true],
+            ['key' => 'trending', 'label' => 'Sedang Trending', 'sort_order' => 3, 'enabled' => true],
+            ['key' => 'latest', 'label' => 'Terbaru', 'sort_order' => 4, 'enabled' => true],
+            ['key' => 'popular', 'label' => 'Terpopuler', 'sort_order' => 5, 'enabled' => true],
+            ['key' => 'recommended', 'label' => 'Rekomendasi Untukmu', 'sort_order' => 6, 'enabled' => true],
+        ];
+
+        $saved = json_decode((string) ($settings['homepage_sections_json'] ?? ''), true);
+        if (!is_array($saved) || $saved === []) {
+            return $defaults;
+        }
+
+        $map = [];
+        foreach ($saved as $item) {
+            if (!is_array($item) || empty($item['key'])) {
+                continue;
+            }
+            $map[$item['key']] = [
+                'key' => (string) $item['key'],
+                'label' => trim((string) ($item['label'] ?? $item['key'])),
+                'sort_order' => (int) ($item['sort_order'] ?? 0),
+                'enabled' => (bool) ($item['enabled'] ?? false),
+            ];
+        }
+
+        foreach ($defaults as $default) {
+            if (!isset($map[$default['key']])) {
+                $map[$default['key']] = $default;
+            }
+        }
+
+        $sections = array_values($map);
+        usort($sections, static fn (array $left, array $right) => $left['sort_order'] <=> $right['sort_order']);
+
+        return $sections;
+    }
+
+    private function settingsDefaults(): array
+    {
+        return [
+            'app_name' => 'BersolekMart',
+            'app_tagline' => 'Marketplace UMKM Kota Probolinggo',
+            'general_logo' => '',
+            'general_favicon' => '',
+            'general_currency' => 'IDR',
+            'general_timezone' => 'Asia/Jakarta',
+            'marketplace_minimum_order' => '0',
+            'marketplace_shipping_base_fee' => '10000',
+            'marketplace_seller_commission' => '5',
+            'marketplace_umkm_approval' => '1',
+            'marketplace_product_approval' => '1',
+            'marketplace_review_moderation' => '1',
+            'checkout_payment_methods' => 'bank_transfer,qris',
+            'checkout_cod' => '0',
+            'checkout_order_timeout' => '60',
+            'checkout_minimum_purchase' => '0',
+            'delivery_courier_mode' => 'auto',
+            'delivery_fee_label' => 'Ongkir tetap dalam kota',
+            'delivery_radius_km' => '15',
+            'delivery_assignment' => 'nearest_available',
+            'seo_title' => 'BersolekMart',
+            'seo_meta_description' => 'Marketplace UMKM Kota Probolinggo',
+            'seo_keywords' => 'probolinggo,umkm,marketplace,lokal',
+            'seo_og_image' => '',
+            'social_facebook' => '',
+            'social_instagram' => '@bersolekmart',
+            'social_whatsapp' => '',
+            'social_tiktok' => '',
+            'maintenance_mode' => '0',
+            'system_cache_enabled' => '1',
+            'contact_email' => 'support@bersolekmart.test',
+        ];
+    }
+
+    private function uploadSettingFile(string $field, ?string $existingPath = null): array
+    {
+        $file = $this->request->getFile($field);
+        if (!$file || !$file->isValid() || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return ['path' => $existingPath];
+        }
+
+        if (!in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'], true)) {
+            return ['error' => 'File pengaturan harus berupa gambar yang valid'];
+        }
+
+        $targetDir = rtrim(FCPATH, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'settings';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0775, true);
+        }
+
+        $newName = $file->getRandomName();
+        $file->move($targetDir, $newName, true);
+
+        return ['path' => 'uploads/settings/' . $newName];
     }
 
     private function getFeaturedProductsData(): array

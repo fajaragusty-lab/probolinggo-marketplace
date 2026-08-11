@@ -109,9 +109,43 @@ class HomeController extends BaseController
         $settings = (new MarketplaceSettingsService())->all([
             'app_name' => 'BersolekMart',
             'app_tagline' => 'Marketplace UMKM Kota Probolinggo',
+            'social_instagram' => '@bersolekmart',
         ]);
 
-        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount', 'banners', 'settings', 'trending', 'popular', 'recommended'));
+        $homepageSections = [
+            'featured' => ['label' => 'Produk Unggulan', 'items' => $featured, 'type' => 'products'],
+            'stores' => ['label' => 'Toko Pilihan UMKM', 'items' => $stores, 'type' => 'stores'],
+            'trending' => ['label' => 'Sedang Trending', 'items' => $trending, 'type' => 'products'],
+            'latest' => ['label' => 'Terbaru', 'items' => $latest, 'type' => 'products'],
+            'popular' => ['label' => 'Terpopuler', 'items' => $popular, 'type' => 'products'],
+            'recommended' => ['label' => 'Rekomendasi Untukmu', 'items' => $recommended, 'type' => 'products'],
+        ];
+
+        $configuredSections = json_decode((string) ($settings['homepage_sections_json'] ?? ''), true);
+        if (is_array($configuredSections) && $configuredSections !== []) {
+            usort($configuredSections, static fn (array $left, array $right) => ((int) ($left['sort_order'] ?? 0)) <=> ((int) ($right['sort_order'] ?? 0)));
+            $orderedSections = [];
+            foreach ($configuredSections as $section) {
+                $key = (string) ($section['key'] ?? '');
+                if ($key === '' || empty($homepageSections[$key])) {
+                    continue;
+                }
+                $orderedSections[] = array_merge($homepageSections[$key], [
+                    'key' => $key,
+                    'label' => trim((string) ($section['label'] ?? $homepageSections[$key]['label'])) ?: $homepageSections[$key]['label'],
+                    'enabled' => (bool) ($section['enabled'] ?? false),
+                ]);
+                unset($homepageSections[$key]);
+            }
+            foreach ($homepageSections as $key => $section) {
+                $orderedSections[] = array_merge($section, ['key' => $key, 'enabled' => true]);
+            }
+            $homepageSections = $orderedSections;
+        } else {
+            $homepageSections = array_map(static fn (string $key, array $section) => array_merge($section, ['key' => $key, 'enabled' => true]), array_keys($homepageSections), $homepageSections);
+        }
+
+        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount', 'banners', 'settings', 'trending', 'popular', 'recommended', 'homepageSections'));
     }
 
     public function search()

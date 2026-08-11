@@ -5,6 +5,7 @@ namespace App\Controllers\Customer;
 use App\Controllers\BaseController;
 use App\Services\CartService;
 use App\Services\CheckoutService;
+use App\Services\MarketplaceSettingsService;
 
 class CheckoutController extends BaseController
 {
@@ -21,11 +22,19 @@ class CheckoutController extends BaseController
             ->where('is_active', 1)
             ->orderBy('method_name', 'ASC')
             ->get()->getResultArray();
+        $settings = (new MarketplaceSettingsService())->all([
+            'marketplace_shipping_base_fee' => '10000',
+            'checkout_payment_methods' => 'bank_transfer,qris',
+        ]);
+        $allowedMethods = array_filter(array_map('trim', explode(',', (string) ($settings['checkout_payment_methods'] ?? ''))));
+        if (!empty($allowedMethods)) {
+            $paymentMethods = array_values(array_filter($paymentMethods, static fn (array $method) => in_array($method['method_code'], $allowedMethods, true)));
+        }
         $groupedByStore = [];
         foreach ($cartData['items'] as $item) {
             $groupedByStore[$item['store_name']][] = $item;
         }
-        $shippingFee = (int) (env('SHIPPING_BASE_FEE') ?: 10000);
+        $shippingFee = (int) ($settings['marketplace_shipping_base_fee'] ?? 10000);
         return view('customer/checkout', [
             'items' => $cartData['items'],
             'groupedByStore' => $groupedByStore,
@@ -44,7 +53,13 @@ class CheckoutController extends BaseController
         if (!$addressId) {
             return redirect()->back()->with('error', 'Pilih alamat pengiriman');
         }
-        $result = (new CheckoutService())->process($userId, $addressId, $this->request->getPost('notes'));
+        $result = (new CheckoutService())->process(
+            $userId,
+            $addressId,
+            (string) $this->request->getPost('notes'),
+            (string) $this->request->getPost('payment_method'),
+            (string) $this->request->getPost('shipping_method')
+        );
         if ($result['success']) {
             return redirect()->to('/orders/' . $result['order_id'])
                 ->with('success', 'Pesanan ' . $result['order_number'] . ' berhasil. Total Rp ' . number_format($result['total'], 0, ',', '.'));

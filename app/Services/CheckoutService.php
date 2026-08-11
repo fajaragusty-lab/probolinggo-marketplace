@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CartModel;
 use App\Models\ProductModel;
+use App\Services\MarketplaceSettingsService;
 
 class CheckoutService
 {
@@ -16,9 +17,13 @@ class CheckoutService
         $this->productModel = model(ProductModel::class);
     }
 
-    public function process(int $userId, int $addressId, ?string $notes = null): array
+    public function process(int $userId, int $addressId, ?string $notes = null, ?string $paymentMethodCode = null, ?string $shippingMethod = null): array
     {
         $db = \Config\Database::connect();
+        $settings = (new MarketplaceSettingsService())->all([
+            'marketplace_shipping_base_fee' => '10000',
+            'marketplace_minimum_order' => '0',
+        ]);
 
         $address = $db->table('addresses')
             ->where(['id' => $addressId, 'user_id' => $userId])
@@ -30,6 +35,21 @@ class CheckoutService
         $cartData = $this->cartService->getCart($userId);
         if (empty($cartData['items'])) {
             return ['success' => false, 'message' => 'Keranjang kosong'];
+        }
+
+        $shippingMethod = trim((string) $shippingMethod);
+        if ($shippingMethod === '' || $shippingMethod !== 'bersolek_courier') {
+            return ['success' => false, 'message' => 'Metode pengiriman tidak valid'];
+        }
+
+        $paymentMethodCode = trim((string) $paymentMethodCode);
+        $paymentMethod = $db->table('payment_methods')
+            ->where('method_code', $paymentMethodCode)
+            ->where('is_active', 1)
+            ->get()
+            ->getRowArray();
+        if (!$paymentMethod) {
+            return ['success' => false, 'message' => 'Metode pembayaran tidak tersedia'];
         }
 
         $db->transStart();
@@ -49,8 +69,12 @@ class CheckoutService
                 }
             }
 
-            $shippingFee = (int) (env('SHIPPING_BASE_FEE') ?: 10000);
+            $shippingFee = (int) ($settings['marketplace_shipping_base_fee'] ?? 10000);
             $subtotal    = $cartData['subtotal'];
+            $minimumOrder = (int) ($settings['marketplace_minimum_order'] ?? 0);
+            if ($subtotal < $minimumOrder) {
+                throw new \RuntimeException('Minimum order belum terpenuhi');
+            }
             $total       = $subtotal + $shippingFee;
             $orderNumber = 'BM' . date('Ymd') . strtoupper(substr(uniqid(), -6));
 
@@ -94,9 +118,15 @@ class CheckoutService
             $db->table('payments')->insert([
                 'order_id'       => $orderId,
                 'payment_number' => $paymentNumber,
-                'provider'       => env('PAYMENT_PROVIDER') ?: 'development',
+                'provider'       => $paymentMethod['provider'] ?: 'development',
                 'amount'         => $total,
                 'status'         => 'PENDING',
+                'metadata'       => json_encode([
+                    'method_code' => $paymentMethod['method_code'],
+                    'method_name' => $paymentMethod['method_name'],
+                    'shipping_method' => $shippingMethod,
+                    'instructions' => json_decode((string) ($paymentMethod['config_json'] ?? 'null'), true),
+                ]),
                 'created_at'     => date('Y-m-d H:i:s'),
                 'updated_at'     => date('Y-m-d H:i:s'),
             ]);

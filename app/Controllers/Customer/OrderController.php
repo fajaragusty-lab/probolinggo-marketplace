@@ -28,6 +28,9 @@ class OrderController extends BaseController
             ->join('stores s', 's.id = oi.store_id')
             ->where('oi.order_id', $id)->get()->getResultArray();
         $payment = $db->table('payments')->where('order_id', $id)->get()->getRowArray();
+        if ($payment && !empty($payment['metadata'])) {
+            $payment['meta'] = json_decode((string) $payment['metadata'], true) ?: [];
+        }
         $shipments = $db->table('shipments')->where('order_id', $id)->get()->getResultArray();
         return view('customer/orders/show', compact('order', 'items', 'payment', 'shipments'));
     }

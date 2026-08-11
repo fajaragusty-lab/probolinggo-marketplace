@@ -45,8 +45,9 @@ class ProductModel extends Model
 
     public function findBySlug(string $slug): ?array
     {
-        $p = $this->select('products.*, stores.name as store_name, stores.slug as store_slug, stores.address as store_address, stores.district as store_district, stores.city as store_city, stores.logo as store_logo, categories.name as category_name')
+        $p = $this->select("products.*, stores.name as store_name, stores.slug as store_slug, stores.address as store_address, stores.district as store_district, stores.city as store_city, stores.logo as store_logo, categories.name as category_name, umkms.verification_status, CASE WHEN umkms.verification_status = 'VERIFIED' THEN 1 ELSE 0 END as is_verified", false)
             ->join('stores', 'stores.id = products.store_id')
+            ->join('umkms', 'umkms.id = stores.umkm_id')
             ->join('categories', 'categories.id = products.category_id')
             ->where('products.slug', $slug)
             ->where('products.status', 'ACTIVE')

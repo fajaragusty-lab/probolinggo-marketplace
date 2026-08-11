@@ -9,11 +9,14 @@
                         <?php $img = $banner['image'] ?? null; ?>
                         <div class="carousel-item <?= $i === 0 ? 'active' : '' ?>" style="background-image:url('<?= esc(bm_image_url($img, $banner['title'] ?? 'Banner')) ?>')">
                             <div class="overlay">
-                                <div>
-                                    <h2 class="h5 mb-1"><?= esc($banner['title']) ?></h2>
-                                    <p class="small mb-2 opacity-75"><?= esc($banner['subtitle'] ?? '') ?></p>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="bm-chip w-auto align-self-start"><i class="bi bi-megaphone"></i> Promo BersolekMart</div>
+                                    <div>
+                                        <h2 class="display-6 fw-bold mb-2"><?= esc($banner['title']) ?></h2>
+                                        <p class="mb-0 opacity-75"><?= esc($banner['subtitle'] ?? '') ?></p>
+                                    </div>
                                     <?php if (!empty($banner['cta_url']) && !empty($banner['cta_label'])): ?>
-                                        <a href="<?= esc($banner['cta_url']) ?>" class="btn btn-light btn-sm"><?= esc($banner['cta_label']) ?></a>
+                                        <div><a href="<?= esc($banner['cta_url']) ?>" class="btn btn-light"><?= esc($banner['cta_label']) ?></a></div>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -22,46 +25,63 @@
                 </div>
             </div>
         <?php else: ?>
-            <div class="p-4">
-                <h1 class="h4 mb-2"><?= esc($settings['app_name'] ?? 'BersolekMart') ?></h1>
+            <div class="p-4 p-md-5">
+                <div class="bm-chip mb-3"><i class="bi bi-shop"></i> Marketplace UMKM Probolinggo</div>
+                <h1 class="display-6 fw-bold mb-2"><?= esc($settings['app_name'] ?? 'BersolekMart') ?></h1>
                 <p class="mb-0 opacity-75"><?= esc($settings['app_tagline'] ?? '') ?></p>
             </div>
         <?php endif; ?>
     </section>
 
     <section class="mb-4">
-        <h3 class="bm-section-title">Jelajahi Kategori</h3>
-        <div class="bm-category-grid">
-            <?php foreach ($categories as $cat): ?>
-                <a class="bm-category-card" href="<?= site_url('category/' . $cat['slug']) ?>">
-                    <div class="fw-semibold small"><?= esc($cat['name']) ?></div>
-                    <div class="small bm-muted"><?= esc($cat['icon'] ?? '•') ?> Produk Lokal</div>
-                </a>
-            <?php endforeach; ?>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="bm-section-title mb-0">Jelajahi Kategori</h3>
+            <a href="<?= site_url('categories') ?>" class="small text-primary text-decoration-none">Lihat kategori</a>
         </div>
+        <?php if (empty($categories)): ?>
+            <div class="bm-empty">
+                <h2 class="h6 mb-1">Kategori belum tersedia</h2>
+                <p class="small bm-muted mb-0">Admin dapat mengaktifkan kategori produk dari panel backend.</p>
+            </div>
+        <?php else: ?>
+            <div class="bm-category-grid">
+                <?php foreach ($categories as $cat): ?>
+                    <a class="bm-category-card" href="<?= site_url('category/' . $cat['slug']) ?>">
+                        <div class="fw-semibold"><?= esc($cat['name']) ?></div>
+                        <div class="small bm-muted"><?= esc($cat['icon'] ?? '•') ?> Produk Lokal</div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </section>
 
-    <section class="mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-2"><h3 class="bm-section-title mb-0">Produk Unggulan</h3><a href="<?= site_url('search') ?>" class="small text-primary">Lihat semua</a></div>
-        <div class="row g-2 g-md-3">
-            <?php foreach ($featured as $product): ?><div class="col-6 col-md-3"><?= view('components/product_card', ['product' => $product]) ?></div><?php endforeach; ?>
-        </div>
-    </section>
-
-    <section class="mb-4">
-        <h3 class="bm-section-title">Toko Pilihan UMKM</h3>
-        <div class="row g-2 g-md-3">
-            <?php foreach ($stores as $store): ?><div class="col-12 col-md-6 col-lg-4"><?= view('components/store_card', ['store' => $store]) ?></div><?php endforeach; ?>
-        </div>
-    </section>
-
-    <?php foreach (['Sedang Trending' => $trending ?? [], 'Terbaru' => $latest ?? [], 'Terpopuler' => $popular ?? [], 'Rekomendasi Untukmu' => $recommended ?? []] as $label => $items): ?>
+    <?php foreach (($homepageSections ?? []) as $section): ?>
+        <?php if (empty($section['enabled'])) {
+            continue;
+        } ?>
         <section class="mb-4">
-            <h3 class="bm-section-title"><?= esc($label) ?></h3>
-            <?php if (empty($items)): ?>
-                <div class="bm-empty small bm-muted">Belum ada data untuk section ini.</div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="bm-section-title mb-0"><?= esc($section['label']) ?></h3>
+                <a href="<?= site_url($section['type'] === 'stores' ? 'search' : 'search') ?>" class="small text-primary text-decoration-none">Lihat semua</a>
+            </div>
+
+            <?php if (empty($section['items'])): ?>
+                <div class="bm-empty">
+                    <h2 class="h6 mb-1">Belum ada konten untuk section ini</h2>
+                    <p class="small bm-muted mb-0">Atur banner, produk unggulan, atau toko unggulan dari halaman CMS admin.</p>
+                </div>
+            <?php elseif (($section['type'] ?? 'products') === 'stores'): ?>
+                <div class="row g-3">
+                    <?php foreach ($section['items'] as $store): ?>
+                        <div class="col-12 col-md-6 col-lg-4"><?= view('components/store_card', ['store' => $store]) ?></div>
+                    <?php endforeach; ?>
+                </div>
             <?php else: ?>
-                <div class="row g-2 g-md-3"><?php foreach ($items as $product): ?><div class="col-6 col-md-3"><?= view('components/product_card', ['product' => $product]) ?></div><?php endforeach; ?></div>
+                <div class="row g-2 g-md-3">
+                    <?php foreach ($section['items'] as $product): ?>
+                        <div class="col-6 col-md-4 col-xl-3"><?= view('components/product_card', ['product' => $product]) ?></div>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
         </section>
     <?php endforeach; ?>

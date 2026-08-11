@@ -1,49 +1,47 @@
 (() => {
-  const q = (s, c = document) => c.querySelector(s);
-  const qa = (s, c = document) => Array.from(c.querySelectorAll(s));
+  const q = (selector, context = document) => context.querySelector(selector);
+  const qa = (selector, context = document) => Array.from(context.querySelectorAll(selector));
 
   qa('[data-thumb]').forEach((thumb) => {
     thumb.addEventListener('click', () => {
-      const target = q('#' + thumb.dataset.target);
+      const target = q(`#${thumb.dataset.target}`);
       if (!target) return;
       target.src = thumb.dataset.thumb;
     });
   });
 
-  const desktopInput = q('#bannerImageInput');
-  const mobileInput = q('#bannerMobileImageInput');
-  const desktopPreview = q('#bannerPreviewDesktop');
-  const mobilePreview = q('#bannerPreviewMobile');
-  const titleInput = q('#bannerTitleInput');
-  const subtitleInput = q('#bannerSubtitleInput');
-  const ctaInput = q('#bannerCtaInput');
-  const ctaLabel = q('#bannerPreviewCta');
-  const titlePreview = q('#bannerPreviewTitle');
-  const subtitlePreview = q('#bannerPreviewSubtitle');
+  const adminShell = q('.bm-admin-shell');
+  q('[data-bm-sidebar-open]')?.addEventListener('click', () => adminShell?.classList.add('is-sidebar-open'));
+  qa('[data-bm-sidebar-close]').forEach((button) => {
+    button.addEventListener('click', () => adminShell?.classList.remove('is-sidebar-open'));
+  });
 
-  const previewFile = (input, target) => {
-    if (!input || !target || !input.files || !input.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      target.src = e.target?.result;
-    };
-    reader.readAsDataURL(input.files[0]);
+  const syncBannerPreviewText = (inputSelector, targetSelector, fallback) => {
+    const input = q(inputSelector);
+    const target = q(targetSelector);
+    input?.addEventListener('input', () => {
+      if (target) target.textContent = input.value || fallback;
+    });
   };
 
-  desktopInput?.addEventListener('change', () => previewFile(desktopInput, desktopPreview));
-  mobileInput?.addEventListener('change', () => previewFile(mobileInput, mobilePreview));
+  const previewFile = (inputSelector, targetSelector) => {
+    const input = q(inputSelector);
+    const target = q(targetSelector);
+    input?.addEventListener('change', () => {
+      if (!target || !input.files || !input.files[0]) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        target.src = event.target?.result;
+      };
+      reader.readAsDataURL(input.files[0]);
+    });
+  };
 
-  titleInput?.addEventListener('input', () => {
-    if (titlePreview) titlePreview.textContent = titleInput.value || 'Judul banner';
-  });
-
-  subtitleInput?.addEventListener('input', () => {
-    if (subtitlePreview) subtitlePreview.textContent = subtitleInput.value || 'Deskripsi banner';
-  });
-
-  ctaInput?.addEventListener('input', () => {
-    if (ctaLabel) ctaLabel.textContent = ctaInput.value || 'CTA';
-  });
+  previewFile('#bannerImageInput', '#bannerPreviewDesktop');
+  previewFile('#bannerMobileImageInput', '#bannerPreviewMobile');
+  syncBannerPreviewText('#bannerTitleInput', '#bannerPreviewTitle', 'Judul banner');
+  syncBannerPreviewText('#bannerSubtitleInput', '#bannerPreviewSubtitle', 'Deskripsi banner');
+  syncBannerPreviewText('#bannerCtaInput', '#bannerPreviewCta', 'CTA');
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
