@@ -1,0 +1,9 @@
+{
+    "name": "BersolekMart",
+    "short_name": "BersolekMart",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#212529",
+    "lang": "id"
+}
