@@ -17,7 +17,7 @@ class HomeController extends BaseController
         $categories = $db->table('categories')->where('is_active', 1)->orderBy('sort_order')->get()->getResultArray();
 
         $featured = $db->table('featured_products fp')
-            ->select('p.*, s.name as store_name, s.slug as store_slug, c.name as category_name')
+            ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
             ->join('products p', 'p.id = fp.product_id')
             ->join('stores s', 's.id = p.store_id')
             ->join('categories c', 'c.id = p.category_id')

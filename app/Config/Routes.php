@@ -77,6 +77,9 @@ $routes->group('admin', ['filter' => 'auth:super_admin,government_admin'], stati
     $routes->post('payment-methods/(:num)/toggle', 'Admin\MasterDataController::togglePaymentMethod/$1');
     $routes->post('payment-methods/(:num)/delete', 'Admin\MasterDataController::deletePaymentMethod/$1');
     $routes->get('users', 'Admin\OperationsController::users');
+    $routes->post('users', 'Admin\OperationsController::saveUser');
+    $routes->post('users/(:num)/toggle', 'Admin\OperationsController::toggleUser/$1');
+    $routes->post('users/(:num)/delete', 'Admin\OperationsController::deleteUser/$1');
     $routes->get('audit-log', 'Admin\OperationsController::auditLog');
 });
 

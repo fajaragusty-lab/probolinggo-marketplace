@@ -257,9 +257,17 @@ a { color: inherit; }
 
 .bm-product-media {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   background: #f1f5f9;
+}
+
+.bm-product-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
 }
 
 .bm-product-body {

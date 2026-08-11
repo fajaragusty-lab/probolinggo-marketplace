@@ -9,7 +9,7 @@ $isCustomer = session()->get('user_id') && in_array('customer', session()->get('
     </a>
     <div class="bm-product-body">
         <div class="small bm-muted text-truncate"><?= esc($product['store_name'] ?? '-') ?></div>
-        <a href="<?= site_url('product/' . ($product['slug'] ?? '')) ?>" class="fw-semibold small text-decoration-none text-reset"><?= esc($product['name'] ?? '-') ?></a>
+        <a href="<?= site_url('product/' . ($product['slug'] ?? '')) ?>" class="fw-semibold small text-decoration-none text-reset bm-product-title"><?= esc($product['name'] ?? '-') ?></a>
         <div class="bm-price"><?= bm_currency((int) ($product['price'] ?? 0)) ?></div>
         <div class="small bm-muted">★ <?= number_format((float) ($product['rating_avg'] ?? 0), 1) ?> · <?= (int) ($product['sold_count'] ?? 0) ?> terjual</div>
         <div class="small <?= (int)($product['stock'] ?? 0) > 0 ? 'text-success' : 'text-danger' ?>"><?= (int)($product['stock'] ?? 0) > 0 ? 'Stok tersedia' : 'Stok habis' ?></div>

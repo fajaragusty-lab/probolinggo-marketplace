@@ -2,13 +2,20 @@
 
 namespace App\Controllers\Admin;
 
+use App\Models\UserModel;
+use App\Services\AuditLogService;
+
 class OperationsController extends BaseAdminController
 {
     protected \CodeIgniter\Database\BaseConnection $db;
+    protected UserModel $users;
+    protected AuditLogService $audit;
 
     public function __construct()
     {
         $this->db = \Config\Database::connect();
+        $this->users = model(UserModel::class);
+        $this->audit = new AuditLogService();
     }
 
     public function orders()
@@ -198,29 +205,171 @@ class OperationsController extends BaseAdminController
             return $guard;
         }
 
-        $rows = $this->db->table('users u')
-            ->select('u.name, u.email, u.is_active, GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ", ") as roles')
+        $q = trim((string) $this->request->getGet('q'));
+        $status = strtolower(trim((string) $this->request->getGet('status')));
+        $editId = (int) $this->request->getGet('edit');
+
+        $builder = $this->db->table('users u')
+            ->select('u.id, u.name, u.email, u.phone, u.is_active, u.last_login_at, u.created_at, GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ", ") as roles, GROUP_CONCAT(r.slug ORDER BY r.slug SEPARATOR ",") as role_slugs')
             ->join('user_roles ur', 'ur.user_id = u.id', 'left')
             ->join('roles r', 'r.id = ur.role_id', 'left')
-            ->groupBy('u.id, u.name, u.email, u.is_active')
+            ->where('u.deleted_at', null)
+            ->groupBy('u.id, u.name, u.email, u.phone, u.is_active, u.last_login_at, u.created_at')
             ->orderBy('u.created_at', 'DESC')
-            ->limit(20)
-            ->get()
-            ->getResultArray();
+            ->limit(40);
 
-        return $this->renderIndex(
-            'Users / Admins',
-            'Daftar akun sistem lintas peran untuk kebutuhan operasional.',
-            ['Nama', 'Email', 'Status', 'Peran'],
-            array_map(static fn (array $row) => [
-                ['type' => 'text', 'value' => $row['name']],
-                ['type' => 'text', 'value' => $row['email']],
-                ['type' => 'status', 'value' => (int) $row['is_active'] === 1 ? 'ACTIVE' : 'INACTIVE'],
-                ['type' => 'text', 'value' => $row['roles'] ?: '-'],
-            ], $rows),
-            'Belum ada akun pengguna.',
-            'Admin, UMKM, courier, dan customer akan direkap pada tabel ini.'
-        );
+        if ($q !== '') {
+            $builder->groupStart()
+                ->like('u.name', $q)
+                ->orLike('u.email', $q)
+                ->orLike('u.phone', $q)
+                ->groupEnd();
+        }
+        if ($status === 'active') {
+            $builder->where('u.is_active', 1);
+        } elseif ($status === 'inactive') {
+            $builder->where('u.is_active', 0);
+        }
+
+        $users = $builder->get()->getResultArray();
+        $editing = $editId > 0 ? $this->userRecord($editId) : null;
+        $roles = $this->db->table('roles')->select('id, name, slug')->orderBy('name', 'ASC')->get()->getResultArray();
+
+        return view('admin/operations/users', [
+            'users' => $users,
+            'editing' => $editing,
+            'roles' => $roles,
+            'filters' => ['q' => $q, 'status' => $status],
+        ]);
+    }
+
+    public function saveUser()
+    {
+        if ($guard = $this->guard()) {
+            return $guard;
+        }
+
+        $id = (int) $this->request->getPost('id');
+        $existing = $id > 0 ? $this->userRecord($id) : null;
+        if ($id > 0 && !$existing) {
+            return redirect()->to('/admin/users')->with('error', 'User tidak ditemukan');
+        }
+
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[150]',
+            'email' => 'required|valid_email|max_length[150]',
+            'phone' => 'permit_empty|min_length[10]|max_length[20]',
+            'password' => $id > 0 ? 'permit_empty|min_length[8]' : 'required|min_length[8]',
+            'role_slug' => 'required|max_length[50]',
+        ];
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
+        }
+
+        $email = strtolower(trim((string) $this->request->getPost('email')));
+        $duplicate = $this->db->table('users')
+            ->where('email', $email)
+            ->where('id !=', $id)
+            ->where('deleted_at', null)
+            ->countAllResults();
+        if ($duplicate > 0) {
+            return redirect()->back()->withInput()->with('error', 'Email user sudah digunakan');
+        }
+
+        $roleSlug = trim((string) $this->request->getPost('role_slug'));
+        $role = $this->db->table('roles')->where('slug', $roleSlug)->get()->getRowArray();
+        if (!$role) {
+            return redirect()->back()->withInput()->with('error', 'Role tidak valid');
+        }
+
+        $payload = [
+            'name' => trim((string) $this->request->getPost('name')),
+            'email' => $email,
+            'phone' => trim((string) $this->request->getPost('phone')) ?: null,
+            'is_active' => $this->request->getPost('is_active') ? 1 : 0,
+        ];
+        $password = (string) $this->request->getPost('password');
+        if ($password !== '') {
+            $payload['password'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+
+        $this->db->transBegin();
+
+        try {
+            if ($id > 0) {
+                $this->users->update($id, $payload);
+                $this->db->table('user_roles')->where('user_id', $id)->delete();
+                $this->db->table('user_roles')->insert([
+                    'user_id' => $id,
+                    'role_id' => (int) $role['id'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+                $this->audit->log('user_updated', 'user', $id, ['email' => $email, 'role' => $roleSlug]);
+            } else {
+                $id = (int) $this->users->insert($payload + ['password' => $payload['password'] ?? password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT)]);
+                if ($id <= 0) {
+                    throw new \RuntimeException('Gagal membuat user');
+                }
+                $this->db->table('user_roles')->insert([
+                    'user_id' => $id,
+                    'role_id' => (int) $role['id'],
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+                $this->audit->log('user_created', 'user', $id, ['email' => $email, 'role' => $roleSlug]);
+            }
+
+            if ($this->db->transStatus() === false) {
+                throw new \RuntimeException('Transaksi user gagal');
+            }
+
+            $this->db->transCommit();
+            return redirect()->to('/admin/users')->with('success', $existing ? 'User diperbarui' : 'User ditambahkan');
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function toggleUser(int $id)
+    {
+        if ($guard = $this->guard()) {
+            return $guard;
+        }
+
+        $user = $this->userRecord($id);
+        if (!$user) {
+            return redirect()->to('/admin/users')->with('error', 'User tidak ditemukan');
+        }
+        if ((int) session()->get('user_id') === $id) {
+            return redirect()->to('/admin/users')->with('error', 'Tidak bisa menonaktifkan akun sendiri');
+        }
+
+        $next = (int) ($user['is_active'] ? 0 : 1);
+        $this->users->update($id, ['is_active' => $next]);
+        $this->audit->log($next ? 'user_activated' : 'user_deactivated', 'user', $id);
+
+        return redirect()->to('/admin/users')->with('success', $next ? 'User diaktifkan' : 'User dinonaktifkan');
+    }
+
+    public function deleteUser(int $id)
+    {
+        if ($guard = $this->guard()) {
+            return $guard;
+        }
+
+        $user = $this->userRecord($id);
+        if (!$user) {
+            return redirect()->to('/admin/users')->with('error', 'User tidak ditemukan');
+        }
+        if ((int) session()->get('user_id') === $id) {
+            return redirect()->to('/admin/users')->with('error', 'Tidak bisa menghapus akun sendiri');
+        }
+
+        $this->users->update($id, ['is_active' => 0]);
+        $this->users->delete($id);
+        $this->audit->log('user_deleted', 'user', $id, ['email' => $user['email']]);
+
+        return redirect()->to('/admin/users')->with('success', 'User dihapus');
     }
 
     public function auditLog()
@@ -255,5 +404,17 @@ class OperationsController extends BaseAdminController
     private function renderIndex(string $title, string $description, array $columns, array $rows, string $emptyTitle, string $emptyDescription)
     {
         return view('admin/operations/index', compact('title', 'description', 'columns', 'rows', 'emptyTitle', 'emptyDescription'));
+    }
+
+    private function userRecord(int $id): ?array
+    {
+        return $this->db->table('users u')
+            ->select('u.id, u.name, u.email, u.phone, u.is_active, u.last_login_at, r.slug as role_slug')
+            ->join('user_roles ur', 'ur.user_id = u.id', 'left')
+            ->join('roles r', 'r.id = ur.role_id', 'left')
+            ->where('u.id', $id)
+            ->where('u.deleted_at', null)
+            ->get()
+            ->getRowArray();
     }
 }
