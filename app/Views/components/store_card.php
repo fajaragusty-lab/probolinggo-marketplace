@@ -6,5 +6,9 @@
         <div class="small bm-muted"><?= esc(($store['district'] ?? '') . ', ' . ($store['city'] ?? '')) ?></div>
         <div class="small bm-muted">★ <?= number_format((float) ($store['rating_avg'] ?? 0), 1) ?> · <?= (int) ($store['rating_count'] ?? 0) ?> ulasan</div>
     </div>
-    <span class="bm-status is-success">Terverifikasi</span>
+    <?php if ((int) ($store['is_verified'] ?? 0) === 1 || (($store['verification_status'] ?? '') === 'VERIFIED')): ?>
+        <span class="bm-status is-success">Terverifikasi</span>
+    <?php else: ?>
+        <span class="bm-status is-neutral">Belum Verifikasi</span>
+    <?php endif; ?>
 </a>

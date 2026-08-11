@@ -51,18 +51,26 @@ class HomeController extends BaseController
             ->orderBy('p.rating_avg', 'DESC')
             ->limit(8)
             ->get()->getResultArray();
+        $activeProductCount = (int) $db->table('products p')
+            ->join('stores s', 's.id = p.store_id')
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->countAllResults();
+        $recommendedOffset = $activeProductCount > 8 ? ((int) date('z') % ($activeProductCount - 8)) : 0;
         $recommended = $db->table('products p')
             ->select("p.*, s.name as store_name, s.slug as store_slug, c.name as category_name, (SELECT file_path FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.id ASC LIMIT 1) as primary_image")
             ->join('stores s', 's.id = p.store_id')
             ->join('categories c', 'c.id = p.category_id')
             ->where('p.status', 'ACTIVE')
             ->where('s.status', 'ACTIVE')
-            ->orderBy('RAND()')
+            ->orderBy('p.updated_at', 'DESC')
             ->limit(8)
+            ->offset($recommendedOffset)
             ->get()->getResultArray();
         $stores = $db->table('featured_stores fs')
-            ->select('s.*')
+            ->select("s.*, u.verification_status, CASE WHEN u.verification_status = 'VERIFIED' THEN 1 ELSE 0 END as is_verified")
             ->join('stores s', 's.id = fs.store_id')
+            ->join('umkms u', 'u.id = s.umkm_id')
             ->where('fs.is_active', 1)
             ->where('s.status', 'ACTIVE')
             ->orderBy('fs.sort_order', 'ASC')
@@ -70,7 +78,13 @@ class HomeController extends BaseController
             ->get()->getResultArray();
 
         if (empty($stores)) {
-            $stores = $db->table('stores')->where('status', 'ACTIVE')->orderBy('rating_avg', 'DESC')->limit(6)->get()->getResultArray();
+            $stores = $db->table('stores s')
+                ->select("s.*, u.verification_status, CASE WHEN u.verification_status = 'VERIFIED' THEN 1 ELSE 0 END as is_verified")
+                ->join('umkms u', 'u.id = s.umkm_id')
+                ->where('s.status', 'ACTIVE')
+                ->orderBy('s.rating_avg', 'DESC')
+                ->limit(6)
+                ->get()->getResultArray();
         }
 
         $banners = $db->table('banners')
