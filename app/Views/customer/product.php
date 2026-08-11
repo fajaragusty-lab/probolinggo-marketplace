@@ -27,7 +27,7 @@
                         <input type="hidden" name="product_id" value="<?= (int)$product['id'] ?>">
                         <div><label class="form-label small bm-muted">Jumlah</label><input type="number" name="quantity" value="1" min="1" max="<?= (int)$product['stock'] ?>" class="form-control" style="width:120px"></div>
                         <button class="btn bm-btn-primary" type="submit" <?= (int)$product['stock'] < 1 ? 'disabled' : '' ?>><i class="bi bi-cart-plus"></i> Tambah ke Keranjang</button>
-                        <a href="<?= site_url('checkout') ?>" class="btn btn-outline-primary">Beli Sekarang</a>
+                        <button class="btn btn-outline-primary" type="submit" name="buy_now" value="1" <?= (int)$product['stock'] < 1 ? 'disabled' : '' ?>>Beli Sekarang</button>
                     </form>
                 <?php else: ?>
                     <a href="<?= site_url('login') ?>" class="btn bm-btn-primary mb-3">Login untuk beli</a>

@@ -11,8 +11,10 @@ class ReportsController extends BaseAdminController
             return $guard;
         }
         $db = \Config\Database::connect();
-        $from = (string) ($this->request->getGet('from') ?: date('Y-m-01'));
-        $to = (string) ($this->request->getGet('to') ?: date('Y-m-d'));
+        $fromInput = (string) ($this->request->getGet('from') ?: date('Y-m-01'));
+        $toInput = (string) ($this->request->getGet('to') ?: date('Y-m-d'));
+        $from = $this->normalizeDate($fromInput, date('Y-m-01'));
+        $to = $this->normalizeDate($toInput, date('Y-m-d'));
 
         if ($this->request->getGet('export') === 'csv') {
             $type = (string) ($this->request->getGet('type') ?: 'sales');
@@ -68,5 +70,15 @@ class ReportsController extends BaseAdminController
             ->setHeader('Content-Type', 'text/csv')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($content);
+    }
+
+    private function normalizeDate(string $value, string $fallback): string
+    {
+        $dt = \DateTime::createFromFormat('Y-m-d', $value);
+        if (!$dt || $dt->format('Y-m-d') !== $value) {
+            return $fallback;
+        }
+
+        return $value;
     }
 }

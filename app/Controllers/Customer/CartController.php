@@ -30,6 +30,9 @@ class CartController extends BaseController
         if ($this->request->isAJAX()) {
             return $this->response->setJSON($result);
         }
+        if ($result['success'] && $this->request->getPost('buy_now')) {
+            return redirect()->to('/checkout')->with('success', $result['message']);
+        }
         return $result['success']
             ? redirect()->back()->with('success', $result['message'])
             : redirect()->back()->with('error', $result['message']);
