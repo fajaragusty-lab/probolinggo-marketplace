@@ -77,39 +77,40 @@ class DashboardController extends BaseController
             $db->transRollback();
             return redirect()->to('/courier/dashboard')->with('error', 'Gagal menerima shipment');
         }
+    }
 
-        public function toggleStatus()
-        {
-            $db = \Config\Database::connect();
-            $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
-            if (!$courier) {
-                return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
-            }
-            $status = strtoupper((string) $this->request->getPost('status'));
-            if (!in_array($status, ['OFFLINE', 'ONLINE', 'AVAILABLE'], true)) {
-                return redirect()->to('/courier/dashboard')->with('error', 'Status tidak valid');
-            }
-            $db->table('couriers')->where('id', $courier['id'])->update(['status' => $status, 'updated_at' => date('Y-m-d H:i:s')]);
-            return redirect()->to('/courier/dashboard')->with('success', 'Status courier diperbarui');
+    public function toggleStatus()
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
         }
-
-        public function pickup(int $shipmentId)
-        {
-            return $this->changeShipmentStatus($shipmentId, 'ASSIGNED', 'PICKED_UP', ['picked_up_at' => date('Y-m-d H:i:s')], 'Pickup berhasil diproses');
+        $status = strtoupper((string) $this->request->getPost('status'));
+        if (!in_array($status, ['OFFLINE', 'ONLINE', 'AVAILABLE'], true)) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Status tidak valid');
         }
+        $db->table('couriers')->where('id', $courier['id'])->update(['status' => $status, 'updated_at' => date('Y-m-d H:i:s')]);
+        return redirect()->to('/courier/dashboard')->with('success', 'Status courier diperbarui');
+    }
 
-        public function onDelivery(int $shipmentId)
-        {
-            return $this->changeShipmentStatus($shipmentId, 'PICKED_UP', 'ON_DELIVERY', [], 'Status pengiriman diperbarui');
+    public function pickup(int $shipmentId)
+    {
+        return $this->changeShipmentStatus($shipmentId, 'ASSIGNED', 'PICKED_UP', ['picked_up_at' => date('Y-m-d H:i:s')], 'Pickup berhasil diproses');
+    }
+
+    public function onDelivery(int $shipmentId)
+    {
+        return $this->changeShipmentStatus($shipmentId, 'PICKED_UP', 'ON_DELIVERY', [], 'Status pengiriman diperbarui');
+    }
+
+    public function complete(int $shipmentId)
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
         }
-
-        public function complete(int $shipmentId)
-        {
-            $db = \Config\Database::connect();
-            $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
-            if (!$courier) {
-                return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
-            }
 
             $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
             if (!$shipment || $shipment['status'] !== 'ON_DELIVERY') {
@@ -147,16 +148,16 @@ class DashboardController extends BaseController
             $db->table('orders')->where('id', (int) $shipment['order_id'])->update(['status' => 'COMPLETED', 'completed_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')]);
             $db->table('couriers')->where('id', $courier['id'])->set('total_deliveries', 'total_deliveries + 1', false)->set('total_earnings', 'total_earnings + ' . (int)($shipment['courier_earning'] ?: floor(((int) $shipment['delivery_fee']) * 0.7)), false)->update();
 
-            return redirect()->to('/courier/dashboard')->with('success', 'Pengantaran selesai');
-        }
+        return redirect()->to('/courier/dashboard')->with('success', 'Pengantaran selesai');
+    }
 
-        private function changeShipmentStatus(int $shipmentId, string $expected, string $next, array $extra, string $message)
-        {
-            $db = \Config\Database::connect();
-            $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
-            if (!$courier) {
-                return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
-            }
+    private function changeShipmentStatus(int $shipmentId, string $expected, string $next, array $extra, string $message)
+    {
+        $db = \Config\Database::connect();
+        $courier = $db->table('couriers')->where('user_id', (int) session()->get('user_id'))->get()->getRowArray();
+        if (!$courier) {
+            return redirect()->to('/courier/dashboard')->with('error', 'Courier tidak ditemukan');
+        }
 
             $shipment = $db->table('shipments')->where('id', $shipmentId)->where('courier_id', $courier['id'])->get()->getRowArray();
             if (!$shipment || $shipment['status'] !== $expected) {
@@ -166,7 +167,6 @@ class DashboardController extends BaseController
             $payload = array_merge($extra, ['status' => $next, 'updated_at' => date('Y-m-d H:i:s')]);
             $db->table('shipments')->where('id', $shipmentId)->update($payload);
 
-            return redirect()->to('/courier/dashboard')->with('success', $message);
-        }
+        return redirect()->to('/courier/dashboard')->with('success', $message);
     }
-}
+        }
