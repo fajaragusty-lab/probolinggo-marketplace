@@ -31,12 +31,26 @@
 </div>
 
 <div id="active" class="bm-card p-3 mb-3">
-    <h2 class="h6">Active Delivery</h2>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0">Active Delivery</h2>
+        <?php if (!empty($active)): ?>
+        <div class="d-flex align-items-center gap-2">
+            <span class="small bm-muted" id="courierGpsStatus">GPS: nonaktif</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="courierGpsToggleBtn" data-courier-gps-toggle>
+                📍 Aktifkan GPS
+            </button>
+        </div>
+        <?php endif; ?>
+    </div>
     <?php if(empty($active)): ?><div class="bm-empty py-3">Tidak ada delivery aktif.</div><?php endif; ?>
     <?php foreach($active as $a): ?>
-        <div class="border rounded p-2 mb-2" data-shipment-tracker data-track-url="<?= esc(site_url('courier/shipments/' . (int) $a['id'] . '/track')) ?>">
+        <div class="border rounded p-2 mb-2" data-shipment-id="<?= (int) $a['id'] ?>" data-track-url="<?= esc(site_url('courier/shipments/' . (int) $a['id'] . '/track')) ?>">
             <div class="d-flex justify-content-between"><strong><?= esc($a['shipment_number']) ?></strong><span class="bm-status <?= bm_status_class($a['status']) ?>"><?= esc($a['status']) ?></span></div>
             <div class="small bm-muted mb-2">Pickup: <?= esc($a['pickup_address'] ?? '-') ?><br>Drop: <?= esc($a['delivery_address'] ?? '-') ?></div>
+            <?php if (!empty($a['delivery_latitude']) && !empty($a['delivery_longitude'])): ?>
+            <div class="small text-success mb-2">📍 Tujuan: <?= esc(number_format((float)$a['delivery_latitude'], 6)) ?>, <?= esc(number_format((float)$a['delivery_longitude'], 6)) ?></div>
+            <?php endif; ?>
+            <div class="small bm-muted d-none courier-gps-last-update" id="gpsUpdate_<?= (int)$a['id'] ?>"></div>
             <div class="d-flex gap-2 flex-wrap">
                 <?php if ($a['status'] === 'ACCEPTED'): ?>
                     <form method="post" action="<?= site_url('courier/shipments/' . (int)$a['id'] . '/arrive-pickup') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-outline-primary">Arrive Pickup</button></form>

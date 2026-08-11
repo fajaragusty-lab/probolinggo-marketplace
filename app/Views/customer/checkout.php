@@ -14,15 +14,24 @@
                 <div class="bm-card p-3 mb-3">
                     <h2 class="h6 mb-2">Pilih Alamat Pengiriman</h2>
                     <?php foreach ($addresses as $a): ?>
-                        <label class="d-flex gap-2 border rounded p-2 mb-2">
-                            <input type="radio" name="address_id" value="<?= (int)$a['id'] ?>" <?= $a['is_default'] ? 'checked' : '' ?> required>
-                            <div>
+                        <label class="d-flex gap-2 border rounded p-2 mb-2 checkout-address-option" data-lat="<?= esc($a['latitude'] ?? '') ?>" data-lng="<?= esc($a['longitude'] ?? '') ?>" data-acc="<?= esc($a['location_accuracy'] ?? '') ?>">
+                            <input type="radio" name="address_id" value="<?= (int)$a['id'] ?>" <?= $a['is_default'] ? 'checked' : '' ?> required class="checkout-addr-radio">
+                            <div class="flex-grow-1">
                                 <div class="fw-semibold small"><?= esc($a['label']) ?> — <?= esc($a['recipient_name']) ?></div>
                                 <div class="small bm-muted"><?= esc($a['address']) ?>, <?= esc($a['district']) ?>, <?= esc($a['city']) ?> <?= esc($a['postal_code'] ?? '') ?></div>
-                                <?php if (!empty($a['latitude']) && !empty($a['longitude'])): ?><div class="small text-success">GPS tersimpan untuk alamat ini</div><?php endif; ?>
+                                <?php if (!empty($a['latitude']) && !empty($a['longitude'])): ?><div class="small text-success">✅ GPS: <?= esc(number_format((float)$a['latitude'], 6)) ?>, <?= esc(number_format((float)$a['longitude'], 6)) ?><?= !empty($a['location_accuracy']) ? ' · Akurasi: ' . esc(number_format((float)$a['location_accuracy'], 1)) . 'm' : '' ?></div><?php else: ?><div class="small text-warning">⚠️ Belum ada GPS — <a href="<?= site_url('addresses/' . (int)$a['id'] . '/edit') ?>">Tambah GPS</a></div><?php endif; ?>
                             </div>
                         </label>
                     <?php endforeach; ?>
+                    <div id="checkoutGpsCard" class="border rounded p-2 mb-2 bg-light d-none">
+                        <div class="fw-semibold small mb-1">📍 Koordinat Tujuan</div>
+                        <div class="small bm-muted">Lat: <span id="checkoutGpsLat">—</span></div>
+                        <div class="small bm-muted">Lng: <span id="checkoutGpsLng">—</span></div>
+                        <div class="small bm-muted" id="checkoutGpsAccRow">Akurasi: <span id="checkoutGpsAcc">—</span> m</div>
+                    </div>
+                    <div id="checkoutNoGpsWarning" class="alert alert-warning small py-1 px-2 mb-2 d-none">
+                        ⚠️ Alamat ini belum memiliki GPS. Tambahkan GPS di halaman edit alamat agar kurir dapat menemukan lokasi Anda.
+                    </div>
                     <a href="<?= site_url('addresses/create') ?>" class="small">+ Tambah alamat baru</a>
                 </div>
 
@@ -76,4 +85,44 @@
     </form>
     <?php endif; ?>
 </div>
+<?= $this->endSection() ?>
+<?= $this->section('scripts') ?>
+<script>
+(function () {
+    const radios = document.querySelectorAll('.checkout-addr-radio');
+    const gpsCard = document.getElementById('checkoutGpsCard');
+    const noGpsWarn = document.getElementById('checkoutNoGpsWarning');
+    const gpsLat = document.getElementById('checkoutGpsLat');
+    const gpsLng = document.getElementById('checkoutGpsLng');
+    const gpsAcc = document.getElementById('checkoutGpsAcc');
+    const gpsAccRow = document.getElementById('checkoutGpsAccRow');
+
+    function updateGpsCard() {
+        const checked = document.querySelector('.checkout-addr-radio:checked');
+        if (!checked) return;
+        const label = checked.closest('.checkout-address-option');
+        const lat = label ? label.dataset.lat : '';
+        const lng = label ? label.dataset.lng : '';
+        const acc = label ? label.dataset.acc : '';
+        if (lat && lng) {
+            gpsLat.textContent = lat;
+            gpsLng.textContent = lng;
+            if (acc) {
+                gpsAcc.textContent = acc;
+                gpsAccRow.classList.remove('d-none');
+            } else {
+                gpsAccRow.classList.add('d-none');
+            }
+            gpsCard.classList.remove('d-none');
+            noGpsWarn.classList.add('d-none');
+        } else {
+            gpsCard.classList.add('d-none');
+            noGpsWarn.classList.remove('d-none');
+        }
+    }
+
+    radios.forEach(r => r.addEventListener('change', updateGpsCard));
+    updateGpsCard();
+})();
+</script>
 <?= $this->endSection() ?>

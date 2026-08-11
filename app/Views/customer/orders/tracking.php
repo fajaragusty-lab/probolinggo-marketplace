@@ -21,12 +21,15 @@
             </div>
 
             <?php if (!empty($shipment['latest_tracking'])): ?>
-                <div class="alert alert-light border small">
-                    Lokasi terakhir kurir: <?= esc($shipment['latest_tracking']['latitude']) ?>, <?= esc($shipment['latest_tracking']['longitude']) ?>
-                    · <?= esc($shipment['latest_tracking']['recorded_at']) ?>
+                <div class="border rounded p-2 bg-light mb-3 small">
+                    <div class="fw-semibold mb-1">📍 Lokasi Terakhir Kurir</div>
+                    <div class="bm-muted">Lat: <?= esc($shipment['latest_tracking']['latitude']) ?></div>
+                    <div class="bm-muted">Lng: <?= esc($shipment['latest_tracking']['longitude']) ?></div>
+                    <?php if (!empty($shipment['latest_tracking']['accuracy'])): ?><div class="bm-muted">Akurasi: <?= esc(number_format((float)$shipment['latest_tracking']['accuracy'], 1)) ?> m</div><?php endif; ?>
+                    <div class="bm-muted mt-1">Diperbarui: <?= esc($shipment['latest_tracking']['recorded_at']) ?></div>
                 </div>
             <?php else: ?>
-                <div class="alert alert-light border small">Peta belum aktif. Sistem tetap mencatat status pengiriman dan siap dihubungkan ke provider peta kapan saja.</div>
+                <div class="alert alert-light border small">Tidak ada lokasi kurir terbaru.</div>
             <?php endif; ?>
 
             <div class="row g-2">

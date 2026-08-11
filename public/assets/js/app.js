@@ -46,28 +46,85 @@
   q('[data-address-geolocate]')?.addEventListener('click', () => {
     const latitude = q('#addressLatitude');
     const longitude = q('#addressLongitude');
+    const accuracy = q('#addressAccuracy');
     const recordedAt = q('#addressLocationRecordedAt');
     const status = q('#addressLocationStatus');
-    if (!navigator.geolocation || !latitude || !longitude || !recordedAt) {
-      if (status) status.textContent = 'Perangkat tidak mendukung GPS browser.';
+    const errorEl = q('#addressGpsError');
+    const resultEl = q('#addressGpsResult');
+    const latSpan = q('#addressGpsLat');
+    const lngSpan = q('#addressGpsLng');
+    const accSpan = q('#addressGpsAcc');
+    const accRow = q('#addressGpsAccRow');
+    const btn = q('#addressGpsBtn');
+
+    const setStatus = (msg) => { if (status) status.textContent = msg; };
+    const showError = (msg) => {
+      if (errorEl) { errorEl.textContent = msg; errorEl.classList.remove('d-none'); }
+      if (resultEl) resultEl.classList.add('d-none');
+    };
+    const hideError = () => { if (errorEl) errorEl.classList.add('d-none'); };
+
+    if (!navigator.geolocation || !latitude || !longitude) {
+      showError('Browser Anda tidak mendukung Geolocation. Gunakan browser modern seperti Chrome atau Firefox.');
       return;
     }
-    if (status) status.textContent = 'Mengambil lokasi GPS...';
-    navigator.geolocation.getCurrentPosition((position) => {
-      latitude.value = position.coords.latitude.toFixed(7);
-      longitude.value = position.coords.longitude.toFixed(7);
-      recordedAt.value = new Date().toISOString();
-      if (status) status.textContent = `GPS tersimpan (${latitude.value}, ${longitude.value}).`;
-    }, () => {
-      if (status) status.textContent = 'Izin lokasi ditolak atau lokasi tidak tersedia.';
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    hideError();
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengambil lokasi...'; }
+    setStatus('Sedang mengambil lokasi GPS, mohon tunggu...');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (btn) { btn.disabled = false; btn.textContent = '📍 Gunakan Lokasi Saya'; }
+        const lat = position.coords.latitude.toFixed(7);
+        const lng = position.coords.longitude.toFixed(7);
+        const acc = position.coords.accuracy;
+        latitude.value = lat;
+        longitude.value = lng;
+        if (accuracy) accuracy.value = acc ? acc.toFixed(2) : '';
+        if (recordedAt) recordedAt.value = new Date().toISOString();
+        if (latSpan) latSpan.textContent = lat;
+        if (lngSpan) lngSpan.textContent = lng;
+        if (accSpan && acc) {
+          accSpan.textContent = acc.toFixed(1);
+          if (accRow) accRow.classList.remove('d-none');
+        }
+        if (resultEl) resultEl.classList.remove('d-none');
+        setStatus('Lokasi berhasil ditangkap. Klik "Simpan Alamat" untuk menyimpan.');
+        hideError();
+      },
+      (err) => {
+        if (btn) { btn.disabled = false; btn.textContent = '📍 Gunakan Lokasi Saya'; }
+        let msg;
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            msg = 'Izin lokasi ditolak. Aktifkan izin lokasi di pengaturan browser Anda lalu coba lagi.';
+            break;
+          case err.POSITION_UNAVAILABLE:
+            msg = 'Lokasi tidak tersedia. Pastikan GPS perangkat aktif dan Anda memiliki koneksi internet.';
+            break;
+          case err.TIMEOUT:
+            msg = 'Waktu habis saat mengambil lokasi. Coba lagi atau pindah ke area yang memiliki sinyal GPS lebih baik.';
+            break;
+          default:
+            msg = 'Gagal mendapatkan lokasi GPS. Silakan coba lagi.';
+        }
+        showError(msg);
+        setStatus('Gagal mengambil lokasi GPS.');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
   });
 
-  qa('[data-shipment-tracker]').forEach((node) => {
-    const url = node.getAttribute('data-track-url');
-    if (!url || !navigator.geolocation) return;
+  // Courier GPS toggle
+  const courierGpsToggleBtn = q('[data-courier-gps-toggle]');
+  const courierGpsStatus = q('#courierGpsStatus');
+  if (courierGpsToggleBtn && navigator.geolocation) {
+    let gpsActive = false;
+    let gpsIntervals = [];
+
     const csrf = qa('input[type="hidden"]').find((input) => /csrf/i.test(input.name));
-    const sendPosition = () => {
+
+    const sendPosition = (url) => {
       navigator.geolocation.getCurrentPosition((position) => {
         const body = new URLSearchParams({
           latitude: position.coords.latitude.toFixed(7),
@@ -80,12 +137,47 @@
           headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest' },
           body: body.toString(),
           credentials: 'same-origin',
+        }).then(() => {
+          const now = new Date().toLocaleTimeString('id-ID');
+          const shipmentId = url.match(/shipments\/(\d+)\/track/)?.[1];
+          if (shipmentId) {
+            const el = q(`#gpsUpdate_${shipmentId}`);
+            if (el) { el.textContent = `GPS terakhir: ${now}`; el.classList.remove('d-none'); }
+          }
+          if (courierGpsStatus) courierGpsStatus.textContent = `GPS aktif — diperbarui ${now}`;
         }).catch(() => {});
-      }, () => {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 });
+      }, () => {
+        if (courierGpsStatus) courierGpsStatus.textContent = 'GPS: gagal mengambil lokasi';
+      }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 });
     };
-    sendPosition();
-    window.setInterval(sendPosition, 30000);
-  });
+
+    courierGpsToggleBtn.addEventListener('click', () => {
+      if (!gpsActive) {
+        gpsActive = true;
+        courierGpsToggleBtn.textContent = '🛑 Nonaktifkan GPS';
+        courierGpsToggleBtn.classList.replace('btn-outline-primary', 'btn-outline-danger');
+        if (courierGpsStatus) courierGpsStatus.textContent = 'GPS: mengambil lokasi...';
+
+        qa('[data-shipment-id][data-track-url]').forEach((node) => {
+          const url = node.getAttribute('data-track-url');
+          sendPosition(url);
+          const id = window.setInterval(() => sendPosition(url), 30000);
+          gpsIntervals.push(id);
+        });
+      } else {
+        gpsActive = false;
+        gpsIntervals.forEach((id) => window.clearInterval(id));
+        gpsIntervals = [];
+        courierGpsToggleBtn.textContent = '📍 Aktifkan GPS';
+        courierGpsToggleBtn.classList.replace('btn-outline-danger', 'btn-outline-primary');
+        if (courierGpsStatus) courierGpsStatus.textContent = 'GPS: nonaktif';
+      }
+    });
+  } else if (courierGpsToggleBtn && !navigator.geolocation) {
+    courierGpsToggleBtn.disabled = true;
+    courierGpsToggleBtn.textContent = 'GPS tidak didukung';
+    if (courierGpsStatus) courierGpsStatus.textContent = 'GPS: tidak didukung browser';
+  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

@@ -48,6 +48,7 @@ class AddressController extends BaseController
             'postal_code' => $this->request->getPost('postal_code'),
             'latitude' => $this->normalizeCoordinate($this->request->getPost('latitude')),
             'longitude' => $this->normalizeCoordinate($this->request->getPost('longitude')),
+            'location_accuracy' => $this->normalizeAccuracy($this->request->getPost('location_accuracy')),
             'location_recorded_at' => $this->normalizeRecordedAt((string) $this->request->getPost('location_recorded_at')),
             'is_default' => $isDefault,
             'created_at' => date('Y-m-d H:i:s'),
@@ -88,6 +89,7 @@ class AddressController extends BaseController
             'postal_code' => $this->request->getPost('postal_code'),
             'latitude' => $this->normalizeCoordinate($this->request->getPost('latitude')),
             'longitude' => $this->normalizeCoordinate($this->request->getPost('longitude')),
+            'location_accuracy' => $this->normalizeAccuracy($this->request->getPost('location_accuracy')),
             'location_recorded_at' => $this->normalizeRecordedAt((string) $this->request->getPost('location_recorded_at')),
             'is_default' => $isDefault,
             'updated_at' => date('Y-m-d H:i:s'),
@@ -109,6 +111,15 @@ class AddressController extends BaseController
         }
 
         return round((float) $value, 7);
+    }
+
+    private function normalizeAccuracy($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $f = (float) $value;
+        return $f > 0 ? round($f, 2) : null;
     }
 
     private function normalizeRecordedAt(string $value): ?string
