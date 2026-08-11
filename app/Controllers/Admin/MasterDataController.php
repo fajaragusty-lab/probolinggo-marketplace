@@ -183,10 +183,11 @@ class MasterDataController extends BaseAdminController
         $builder = $this->db->table('users u')
             ->select('u.id, u.name, u.email, u.phone, u.is_active, u.created_at, u.last_login_at, COUNT(DISTINCT o.id) as total_orders, COUNT(DISTINCT a.id) as total_addresses')
             ->join('user_roles ur', 'ur.user_id = u.id')
-            ->join('roles r', 'r.id = ur.role_id AND r.slug = "customer"')
+            ->join('roles r', 'r.id = ur.role_id')
             ->join('orders o', 'o.customer_id = u.id', 'left')
             ->join('addresses a', 'a.user_id = u.id', 'left')
             ->where('u.deleted_at', null)
+            ->where('r.slug', 'customer')
             ->groupBy('u.id, u.name, u.email, u.phone, u.is_active, u.created_at, u.last_login_at');
 
         if ($q !== '') {
@@ -501,8 +502,9 @@ class MasterDataController extends BaseAdminController
         return $this->db->table('users u')
             ->select('u.*')
             ->join('user_roles ur', 'ur.user_id = u.id')
-            ->join('roles r', 'r.id = ur.role_id AND r.slug = "customer"')
+            ->join('roles r', 'r.id = ur.role_id')
             ->where('u.id', $id)
+            ->where('r.slug', 'customer')
             ->where('u.deleted_at', null)
             ->get()
             ->getRowArray();
@@ -512,8 +514,9 @@ class MasterDataController extends BaseAdminController
     {
         $builder = $this->db->table('users u')
             ->join('user_roles ur', 'ur.user_id = u.id')
-            ->join('roles r', 'r.id = ur.role_id AND r.slug = "customer"')
-            ->where('u.deleted_at', null);
+            ->join('roles r', 'r.id = ur.role_id')
+            ->where('u.deleted_at', null)
+            ->where('r.slug', 'customer');
 
         if ($active !== null) {
             $builder->where('u.is_active', $active);
