@@ -123,6 +123,66 @@ class DatabaseSeeder extends Seeder
             'created_at' => $now, 'updated_at' => $now,
         ]);
 
+
+        $productsRows = $db->table('products')->orderBy('id', 'ASC')->get()->getResultArray();
+        foreach ($productsRows as $idx => $pr) {
+            if ($idx < 4) {
+                $db->table('featured_products')->insert([
+                    'product_id' => $pr['id'],
+                    'sort_order' => $idx + 1,
+                    'is_active' => 1,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+
+        $db->table('featured_stores')->insertBatch([
+            ['store_id' => $store1, 'sort_order' => 1, 'is_active' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['store_id' => $store2, 'sort_order' => 2, 'is_active' => 1, 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $db->table('banners')->insertBatch([
+            [
+                'title' => 'Belanja Produk Lokal Probolinggo',
+                'subtitle' => 'Dukung UMKM Kota Probolinggo',
+                'cta_label' => 'Jelajahi Produk',
+                'cta_url' => '/search',
+                'sort_order' => 1,
+                'is_active' => 1,
+                'created_by' => $userMap['superadmin@marketplace.test'],
+                'updated_by' => $userMap['superadmin@marketplace.test'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'title' => 'Pengiriman Cepat Dalam Kota',
+                'subtitle' => 'Lacak pesanan Anda secara real-time',
+                'cta_label' => 'Lihat Pesanan',
+                'cta_url' => '/orders',
+                'sort_order' => 2,
+                'is_active' => 1,
+                'created_by' => $userMap['superadmin@marketplace.test'],
+                'updated_by' => $userMap['superadmin@marketplace.test'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        $db->table('marketplace_settings')->insertBatch([
+            ['setting_key' => 'app_name', 'setting_value' => 'BERSOLEKMART', 'created_at' => $now, 'updated_at' => $now],
+            ['setting_key' => 'app_tagline', 'setting_value' => 'Marketplace UMKM Kota Probolinggo', 'created_at' => $now, 'updated_at' => $now],
+            ['setting_key' => 'default_currency', 'setting_value' => 'IDR', 'created_at' => $now, 'updated_at' => $now],
+            ['setting_key' => 'shipping_base_fee', 'setting_value' => '10000', 'created_at' => $now, 'updated_at' => $now],
+            ['setting_key' => 'minimum_order', 'setting_value' => '0', 'created_at' => $now, 'updated_at' => $now],
+            ['setting_key' => 'maintenance_mode', 'setting_value' => '0', 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $db->table('payment_methods')->insertBatch([
+            ['provider' => 'development', 'method_code' => 'bank_transfer', 'method_name' => 'Transfer Bank', 'is_active' => 1, 'config_json' => json_encode(['instruction' => 'Transfer manual']), 'created_at' => $now, 'updated_at' => $now],
+            ['provider' => 'development', 'method_code' => 'qris', 'method_name' => 'QRIS', 'is_active' => 1, 'config_json' => json_encode(['instruction' => 'Scan QR']), 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
         echo "DatabaseSeeder completed.\n";
     }
 }

@@ -3,8 +3,9 @@
 namespace App\Controllers\Customer;
 
 use App\Controllers\BaseController;
-use App\Models\ProductModel;
 use App\Models\CartModel;
+use App\Models\ProductModel;
+use App\Services\MarketplaceSettingsService;
 
 class HomeController extends BaseController
 {
@@ -14,16 +15,61 @@ class HomeController extends BaseController
         $db = \Config\Database::connect();
 
         $categories = $db->table('categories')->where('is_active', 1)->orderBy('sort_order')->get()->getResultArray();
-        $featured   = $productModel->getActiveWithStore(['featured' => 1], 8);
-        $latest     = $productModel->getActiveWithStore([], 12);
-        $stores     = $db->table('stores')->where('status', 'ACTIVE')->orderBy('rating_avg', 'DESC')->limit(6)->get()->getResultArray();
+
+        $featured = $db->table('featured_products fp')
+            ->select('p.*, s.name as store_name, s.slug as store_slug, c.name as category_name')
+            ->join('products p', 'p.id = fp.product_id')
+            ->join('stores s', 's.id = p.store_id')
+            ->join('categories c', 'c.id = p.category_id')
+            ->where('fp.is_active', 1)
+            ->where('p.status', 'ACTIVE')
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('fp.sort_order', 'ASC')
+            ->limit(8)
+            ->get()->getResultArray();
+
+        if (empty($featured)) {
+            $featured = $productModel->getActiveWithStore(['featured' => 1], 8);
+        }
+
+        $latest = $productModel->getActiveWithStore([], 12);
+        $stores = $db->table('featured_stores fs')
+            ->select('s.*')
+            ->join('stores s', 's.id = fs.store_id')
+            ->where('fs.is_active', 1)
+            ->where('s.status', 'ACTIVE')
+            ->orderBy('fs.sort_order', 'ASC')
+            ->limit(6)
+            ->get()->getResultArray();
+
+        if (empty($stores)) {
+            $stores = $db->table('stores')->where('status', 'ACTIVE')->orderBy('rating_avg', 'DESC')->limit(6)->get()->getResultArray();
+        }
+
+        $banners = $db->table('banners')
+            ->where('is_active', 1)
+            ->groupStart()
+                ->where('starts_at IS NULL', null, false)
+                ->orWhere('starts_at <=', date('Y-m-d H:i:s'))
+            ->groupEnd()
+            ->groupStart()
+                ->where('ends_at IS NULL', null, false)
+                ->orWhere('ends_at >=', date('Y-m-d H:i:s'))
+            ->groupEnd()
+            ->orderBy('sort_order', 'ASC')
+            ->get()->getResultArray();
 
         $cartCount = 0;
         if (session()->get('user_id')) {
             $cartCount = model(CartModel::class)->getItemCount((int) session()->get('user_id'));
         }
 
-        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount'));
+        $settings = (new MarketplaceSettingsService())->all([
+            'app_name' => 'BersolekMart',
+            'app_tagline' => 'Marketplace UMKM Kota Probolinggo',
+        ]);
+
+        return view('customer/home', compact('categories', 'featured', 'latest', 'stores', 'cartCount', 'banners', 'settings'));
     }
 
     public function search()
@@ -47,6 +93,11 @@ class HomeController extends BaseController
             'categories' => $categories,
             'categoryId' => $categoryId,
         ]);
+    }
+
+    public function categories()
+    {
+        return $this->search();
     }
 
     public function category(string $slug)

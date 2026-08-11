@@ -6,6 +6,7 @@ use CodeIgniter\Router\RouteCollection;
 
 $routes->get('/', 'Customer\HomeController::index');
 $routes->get('search', 'Customer\HomeController::search');
+$routes->get('categories', 'Customer\HomeController::categories');
 $routes->get('category/(:segment)', 'Customer\HomeController::category/$1');
 $routes->get('product/(:segment)', 'Customer\HomeController::product/$1');
 $routes->get('store/(:segment)', 'Customer\HomeController::store/$1');
@@ -34,4 +35,30 @@ $routes->group('', ['filter' => 'auth:customer'], static function ($routes) {
     $routes->get('addresses/(:num)/edit', 'Customer\AddressController::edit/$1');
     $routes->post('addresses/(:num)', 'Customer\AddressController::update/$1');
     $routes->post('addresses/(:num)/delete', 'Customer\AddressController::delete/$1');
+});
+
+$routes->group('admin', ['filter' => 'auth:super_admin,government_admin'], static function ($routes) {
+    $routes->get('/', 'Admin\DashboardController::index');
+    $routes->get('dashboard', 'Admin\DashboardController::index');
+    $routes->get('statistics', 'Admin\StatisticsController::index');
+    $routes->get('reports', 'Admin\ReportsController::index');
+
+    $routes->get('homepage', 'Admin\CmsController::homepage');
+    $routes->get('banners', 'Admin\CmsController::banners');
+    $routes->post('banners', 'Admin\CmsController::saveBanner');
+    $routes->get('featured-products', 'Admin\CmsController::featuredProducts');
+    $routes->post('featured-products', 'Admin\CmsController::saveFeaturedProducts');
+    $routes->get('featured-stores', 'Admin\CmsController::featuredStores');
+    $routes->post('featured-stores', 'Admin\CmsController::saveFeaturedStores');
+    $routes->get('settings', 'Admin\CmsController::settings');
+    $routes->post('settings', 'Admin\CmsController::saveSettings');
+});
+
+$routes->group('umkm', ['filter' => 'auth:umkm'], static function ($routes) {
+    $routes->get('dashboard', 'Umkm\DashboardController::index');
+});
+
+$routes->group('courier', ['filter' => 'auth:courier'], static function ($routes) {
+    $routes->get('dashboard', 'Courier\DashboardController::index');
+    $routes->post('shipments/(:num)/accept', 'Courier\DashboardController::accept/$1');
 });

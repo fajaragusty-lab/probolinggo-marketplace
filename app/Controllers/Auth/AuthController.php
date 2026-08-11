@@ -51,7 +51,7 @@ class AuthController extends BaseController
         } elseif (in_array('courier', $roles, true)) {
             $redirect = '/courier/dashboard';
         } elseif (in_array('government_admin', $roles, true) || in_array('super_admin', $roles, true)) {
-            $redirect = '/gov/dashboard';
+            $redirect = '/admin/dashboard';
         }
 
         return redirect()->to($redirect)->with('success', 'Login berhasil');
